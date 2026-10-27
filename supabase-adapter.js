@@ -27,6 +27,9 @@ if(p[0]==="hotels"&&p.length===2)q=sb.from("hotels").upsert({id:p[1],name:d.name
 else if(p[0]==="hotels")q=sb.from("hotel_months").upsert({hotel_id:p[1],month:p[3],data:d});
 else{var i=p[1].lastIndexOf("_");q=sb.from("locks").upsert({hotel_id:p[1].slice(0,i),month:p[1].slice(i+1),closed:!!d.closed})}
 return q.then(err);
+},delete:function(){
+if(p[0]==="hotels"&&p.length===4)return sb.from("hotel_months").delete().eq("hotel_id",p[1]).eq("month",p[3]).then(err);
+return Promise.reject({code:"invalid_argument",message:"niet ondersteund"});
 }}}
 };
 var user={can:function(){return Promise.resolve(true)},canEdit:function(){return Promise.resolve(editor)},id:function(){return Promise.resolve(me.id)}};

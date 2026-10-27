@@ -44,7 +44,7 @@ select{padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:v
 <div class="months" id="months"></div>
 <div class="card meta">
 <div><label for="datum">Datum van de telling</label><input id="datum" type="date"></div>
-<div><label>Status</label><span id="st" class="hint">Laden…</span> <button id="lockbtn" hidden></button></div>
+<div><label>Status</label><span id="st" class="hint">Laden…</span> <button id="lockbtn" hidden></button> <button id="delmbtn" hidden>Maand verwijderen</button></div>
 </div>
 <div class="tabs" id="tabs"></div>
 <div class="card" id="view"></div>
@@ -81,6 +81,19 @@ function overviewRows(){
 var rows=[["Categorie","Waarde begin","Waarde eind","Waarde beweging"]],T={wb:0,we:0,wm:0};
 CATS.forEach(function(c){var t=tot(c);T.wb+=t.wb;T.we+=t.we;T.wm+=t.wm;rows.push([c,t.wb,t.we,t.wm])});
 rows.push(["TOTAAL",T.wb,T.we,T.wm]);return rows;
+}
+function monthEmpty(k){var m=S.months[k];if(!m)return false;if(String(m.datum||"").trim())return false;return CATS.every(function(c){return(m.cats[c]||[]).every(function(it){return!String(it.b==null?"":it.b).trim()&&!String(it.e==null?"":it.e).trim()})})}
+function delMonth(){
+var k=cm,h=hid,b=$("delmbtn");if(!isAdmin||!k||!h)return;
+if(isLocked(h,k)){$("st").textContent="Heropen de maand eerst";return}
+if(!monthEmpty(k)){$("st").textContent="Deze maand bevat al waardes";return}
+if(!b.getAttribute("data-sure")){b.setAttribute("data-sure","1");b.textContent="Zeker verwijderen?";return}
+clearTimeout(timers[k]);dirty[k]=false;b.disabled=true;
+db.doc("hotels/"+h+"/months/"+k).delete().then(function(){
+if(h!==hid)return;delete S.months[k];
+if(!keys().length){newMonth(today);scheduleSave(today)}
+cm="";$("st").textContent="Maand verwijderd";show();
+}).catch(function(e){b.disabled=false;showErr(e)});
 }
 function newMonth(k){var m={datum:"",removed:[],cats:{}};CATS.forEach(function(c){m.cats[c]=[]});S.months[k]=m}
 function keys(){return Object.keys(S.months).sort()}
@@ -179,10 +192,10 @@ if(!canWrite){[].forEach.call(document.querySelectorAll("#view input,#view butto
 if(hid&&!allView&&!impView&&isLocked(hid,cm)){
 if(!isAdmin)[].forEach.call(document.querySelectorAll("#view input,#view button:not(#oexp):not(#aexp),#datum"),function(e){e.disabled=true});
 $("st").textContent="Afgesloten";
-}
+}else if($("st").textContent==="Afgesloten")status();
 }
 function show(){
-hotelBar();$("lockbtn").hidden=true;
+hotelBar();$("lockbtn").hidden=true;$("delmbtn").hidden=true;
 if(impView&&isAdmin){$("months").innerHTML="";$("tabs").innerHTML="";$("datum").value="";viewImport();return}
 if(allView&&isAdmin){$("months").innerHTML="";$("tabs").innerHTML="";$("datum").value="";viewAll();return}
 if(!hid){$("months").innerHTML="";$("tabs").innerHTML="";$("datum").value="";$("view").innerHTML='<p class="hint">'+(Object.keys(H).length?"Kies een hotel.":"Voeg eerst een hotel toe.")+'</p>';lock();return}
@@ -191,7 +204,7 @@ if(!ks.length){$("months").innerHTML="";$("tabs").innerHTML="";$("view").innerHT
 sync().forEach(scheduleSave);ks=keys();
 if(!S.months[cm])cm=ks.indexOf(today)>=0?today:ks[ks.length-1];
 $("datum").value=S.months[cm].datum||"";
-monthBar();tabs();cur==="Overview"?overview():category(cur);var lb=$("lockbtn");lb.hidden=!isAdmin;lb.textContent=isLocked(hid,cm)?"Maand heropenen":"Maand afsluiten";lock();
+monthBar();tabs();cur==="Overview"?overview():category(cur);var lb=$("lockbtn");lb.hidden=!isAdmin;lb.textContent=isLocked(hid,cm)?"Maand heropenen":"Maand afsluiten";var dm=$("delmbtn");dm.hidden=!isAdmin;dm.removeAttribute("data-sure");dm.textContent="Maand verwijderen";dm.disabled=!monthEmpty(cm)||isLocked(hid,cm);dm.title=dm.disabled?"Enkel een open maand zonder ingevulde voorraad kan verwijderd worden":"";lock();
 }
 function viewAll(){
 $("view").innerHTML='<h2>Alle hotels</h2><div class="months"><input type="month" id="amonth" value="'+allMonth+'"><button id="aload" class="p">Tonen</button><button id="aexp">Exporteer CSV</button></div><div id="aout" class="wrap"><p class="hint">Laden…</p></div>';
@@ -279,7 +292,7 @@ var tr=e.target.closest("tr"),it=S.months[cm].cats[cur][+tr.getAttribute("data-i
 it[f]=e.target.value;var k=calc(cur,it);
 tr.querySelector(".k-f").textContent=fq.format(k.f);tr.querySelector(".k-wb").textContent=fm.format(k.wb);
 tr.querySelector(".k-we").textContent=fm.format(k.we);tr.querySelector(".k-wm").textContent=fm.format(k.wm);
-var xb=tr.querySelector(".x");if(xb)xb.disabled=!canDel(cur,it);
+var xb=tr.querySelector(".x");if(xb)xb.disabled=!canDel(cur,it);if(isAdmin){var dm=$("delmbtn");dm.disabled=!monthEmpty(cm)||isLocked(hid,cm)}
 totals();scheduleSave(cm);
 });
 $("view").addEventListener("click",function(e){
@@ -300,6 +313,7 @@ show();
 }else{t.setAttribute("data-sure","1");t.textContent="Zeker?"}
 }
 });
+$("delmbtn").onclick=delMonth;
 $("lockbtn").onclick=function(){if(hid&&cm)setClosed(hid,cm,!isLocked(hid,cm))};
 try{if(window.claude&&claude.use)claude.use("downloads").then(function(d){dl=d},function(){})}catch(e){}
 show();
