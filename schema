@@ -1,0 +1,29 @@
+create table editors(user_id uuid primary key references auth.users on delete cascade);
+create table hotels(id text primary key, name text not null);
+create table hotel_months(hotel_id text not null references hotels on delete cascade, month text not null, data jsonb not null default '{}', primary key(hotel_id, month));
+create table locks(hotel_id text not null, month text not null, closed boolean not null default false, primary key(hotel_id, month));
+
+create function is_editor() returns boolean language sql stable security definer set search_path=public as
+$$ select exists(select 1 from editors where user_id = auth.uid()) $$;
+
+alter table editors enable row level security;
+alter table hotels enable row level security;
+alter table hotel_months enable row level security;
+alter table locks enable row level security;
+
+create policy editors_self on editors for select using (user_id = auth.uid());
+
+create policy hotels_select on hotels for select using (is_editor() or id = auth.uid()::text);
+create policy hotels_insert on hotels for insert with check (is_editor() or id = auth.uid()::text);
+create policy hotels_update on hotels for update using (is_editor() or id = auth.uid()::text) with check (is_editor() or id = auth.uid()::text);
+create policy hotels_delete on hotels for delete using (is_editor());
+
+create policy months_select on hotel_months for select using (is_editor() or hotel_id = auth.uid()::text);
+create policy months_insert on hotel_months for insert with check (is_editor() or (hotel_id = auth.uid()::text and not exists (select 1 from locks l where l.hotel_id = hotel_months.hotel_id and l.month = hotel_months.month and l.closed)));
+create policy months_update on hotel_months for update using (is_editor() or (hotel_id = auth.uid()::text and not exists (select 1 from locks l where l.hotel_id = hotel_months.hotel_id and l.month = hotel_months.month and l.closed))) with check (is_editor() or hotel_id = auth.uid()::text);
+create policy months_delete on hotel_months for delete using (is_editor());
+
+create policy locks_select on locks for select using (is_editor() or hotel_id = auth.uid()::text);
+create policy locks_write on locks for all using (is_editor()) with check (is_editor());
+
+alter publication supabase_realtime add table hotels, hotel_months, locks;
