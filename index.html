@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stocktelling</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#29335c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stocktelling">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#6b7280;--bd:#e3e6ea;--ac:#2563eb;--acx:#fff;--inp:#fff7d6;--bad:#b91c1c;--pos:#15803d;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -34,6 +42,25 @@ tr.tot td{font-weight:700;border-top:2px solid var(--bd)}
 .hint{color:var(--mut);font-size:12px;margin:8px 0 0}
 .months{display:flex;gap:6px;overflow-x:auto;align-items:center;margin-bottom:10px}.months button{white-space:nowrap}.months button.on{background:var(--ac);color:var(--acx);border-color:var(--ac)}.months input{width:150px}.ro{color:var(--mut)}
 select{padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit;max-width:220px}.months input#hnew{width:170px}
+@media (max-width:640px){
+main{padding:12px 12px 32px}
+h1{font-size:20px}
+input,select,button{min-height:42px;font-size:16px}
+.meta{grid-template-columns:1fr}
+.months input,.months input#hnew{width:150px;flex:none}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-top:6px;margin:0 -12px 6px;padding-left:12px;padding-right:12px}
+table{min-width:0}
+table.cat thead{display:none}
+table.cat tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;padding:12px 0;border-bottom:1px solid var(--bd)}
+table.cat td{border:0;padding:0;text-align:left;white-space:normal}
+table.cat td[data-l]::before{content:attr(data-l);display:block;font-size:11px;color:var(--mut);margin-bottom:2px}
+table.cat td:first-child{grid-column:1/-1;font-weight:600;font-size:16px}
+table.cat td input{width:100%!important}
+table.cat td.d{grid-column:1/-1;text-align:right}
+table.cat tr.tot{border-top:2px solid var(--bd)}
+table.cat tr.tot td{border:0}
+table.cat tr.tot td:empty{display:none}
+}
 </style>
 </head>
 <body>
@@ -50,6 +77,7 @@ select{padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:v
 <div class="card" id="view"></div>
 <p class="hint">Enkel de gele cellen moeten ingevuld worden. De beginvoorraad van een maand is automatisch de eindvoorraad van de vorige maand. Alles wordt gedeeld bewaard. Producten en eenheden worden automatisch overgenomen uit de vorige maand; pas ze aan in de eerste maand waarin het product voorkomt. Een product verwijderen kan enkel als begin en eind 0 zijn. De beheerder kan een maand afsluiten. Elk hotel ziet enkel zijn eigen gegevens.</p>
 </main>
+<script>if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script src="supabase-adapter.js"></script>
@@ -169,18 +197,18 @@ function rowHtml(c,it,i){
 var k=calc(c,it);
 var o=k.auto?src(c,it):it;
 return '<tr data-i="'+i+'">'+(k.auto?'<td class="ro" title="Automatisch uit de vorige maand">'+esc(o.p)+'</td>':'<td><input data-f="p" value="'+esc(it.p)+'" placeholder="Product"></td>')
-+(k.auto?'<td class="c ro" title="Automatisch uit de vorige maand">'+esc(o.u)+'</td>':'<td><input data-f="u" value="'+esc(it.u)+'" placeholder="stuks" style="width:80px"></td>')
-+'<td><input data-f="pr" type="number" step="any" min="0" value="'+esc(it.pr)+'" style="width:84px"></td>'
-+(k.auto?'<td class="c ro" title="Automatisch: eindvoorraad vorige maand">'+fq.format(k.b)+'</td>':'<td><input data-f="b" type="number" step="any" value="'+esc(it.b)+'" style="width:84px"></td>')
-+'<td><input data-f="e" type="number" step="any" value="'+esc(it.e)+'" style="width:84px"></td>'
-+'<td class="c k-f">'+fq.format(k.f)+'</td><td class="c k-wb">'+fm.format(k.wb)+'</td><td class="c k-we">'+fm.format(k.we)+'</td><td class="c k-wm">'+fm.format(k.wm)+'</td>'
-+'<td><button class="x" data-del="'+i+'" aria-label="Verwijder"'+(canDel(c,it)?'':' disabled title="Verwijderen kan enkel als begin en eind 0 zijn"')+'>✕</button></td></tr>';
++(k.auto?'<td class="c ro" data-l="Eenheid" title="Automatisch uit de vorige maand">'+esc(o.u)+'</td>':'<td data-l="Eenheid"><input data-f="u" value="'+esc(it.u)+'" placeholder="stuks" style="width:80px"></td>')
++'<td data-l="Prijs excl. BTW"><input data-f="pr" type="number" step="any" min="0" value="'+esc(it.pr)+'" style="width:84px"></td>'
++(k.auto?'<td class="c ro" data-l="Begin" title="Automatisch: eindvoorraad vorige maand">'+fq.format(k.b)+'</td>':'<td data-l="Begin"><input data-f="b" type="number" step="any" value="'+esc(it.b)+'" style="width:84px"></td>')
++'<td data-l="Eind"><input data-f="e" type="number" step="any" value="'+esc(it.e)+'" style="width:84px"></td>'
++'<td class="c k-f" data-l="Beweging">'+fq.format(k.f)+'</td><td class="c k-wb" data-l="Waarde begin">'+fm.format(k.wb)+'</td><td class="c k-we" data-l="Waarde eind">'+fm.format(k.we)+'</td><td class="c k-wm" data-l="Waarde beweging">'+fm.format(k.wm)+'</td>'
++'<td class="d"><button class="x" data-del="'+i+'" aria-label="Verwijder"'+(canDel(c,it)?'':' disabled title="Verwijderen kan enkel als begin en eind 0 zijn"')+'>✕</button></td></tr>';
 }
 function category(c){
 var items=S.months[cm].cats[c];
-var h='<h2>'+c+' · '+label(cm)+'</h2><div class="wrap"><table><thead><tr><th>Producten</th><th>Eenheid</th><th>Prijs excl. BTW</th><th>Begin</th><th>Eind</th><th>Beweging</th><th>Waarde begin</th><th>Waarde eind</th><th>Waarde beweging</th><th></th></tr></thead><tbody>';
+var h='<h2>'+c+' · '+label(cm)+'</h2><div class="wrap"><table class="cat"><thead><tr><th>Producten</th><th>Eenheid</th><th>Prijs excl. BTW</th><th>Begin</th><th>Eind</th><th>Beweging</th><th>Waarde begin</th><th>Waarde eind</th><th>Waarde beweging</th><th></th></tr></thead><tbody>';
 items.forEach(function(it,i){h+=rowHtml(c,it,i)});
-h+='<tr class="tot"><td>TOTALEN</td><td></td><td></td><td></td><td></td><td></td><td class="c" id="t-wb"></td><td class="c" id="t-we"></td><td class="c" id="t-wm"></td><td></td></tr></tbody></table></div>';
+h+='<tr class="tot"><td>TOTALEN</td><td></td><td></td><td></td><td></td><td></td><td class="c" id="t-wb" data-l="Waarde begin"></td><td class="c" id="t-we" data-l="Waarde eind"></td><td class="c" id="t-wm" data-l="Waarde beweging"></td><td></td></tr></tbody></table></div>';
 if(!items.length)h+='<p class="hint">Nog geen producten.</p>';
 h+='<p><button class="p" id="add">+ Product toevoegen</button></p>';
 $("view").innerHTML=h;totals();
