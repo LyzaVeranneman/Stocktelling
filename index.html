@@ -61,6 +61,13 @@ table.cat tr.tot{border-top:2px solid var(--bd)}
 table.cat tr.tot td{border:0}
 table.cat tr.tot td:empty{display:none}
 }
+tr.bad td{background:color-mix(in srgb,var(--bad) 10%,transparent)}
+tr.bad td.k-we{color:var(--bad);font-weight:700}
+tr.wr td{text-align:left;color:var(--bad);font-size:13px;padding:6px 8px 10px;background:color-mix(in srgb,var(--bad) 10%,transparent)}
+tr.wr button{margin-left:8px;border-color:var(--bad);color:var(--bad)}
+.tabs .dot{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px;text-align:center}
+.okd{color:var(--mut);font-size:12px;margin-left:6px}
+@media (max-width:640px){table.cat tr.bad{background:color-mix(in srgb,var(--bad) 10%,transparent);padding:12px 8px;border-radius:8px}table.cat tr.bad td{background:none}table.cat tr.bad:has(+tr.wr){border-radius:8px 8px 0 0;border-bottom:0}table.cat tr.wr{display:block;margin:0 0 6px;font-weight:400;padding:0 8px 12px;border-radius:0 0 8px 8px;background:color-mix(in srgb,var(--bad) 10%,transparent)}table.cat tr.wr td{display:block;background:none;padding:0}tr.wr button{margin:8px 0 0;display:block}}
 </style>
 </head>
 <body>
@@ -164,6 +171,15 @@ var pi=prevItem(cm,c,it.id),b=pi?n(pi.e):n(it.b),f=n(it.e)-b,pr=n(it.pr);
 return{auto:!!pi,b:b,f:f,wb:pr*b,we:pr*n(it.e),wm:pr*f};
 }
 function tot(c){var t={wb:0,we:0,wm:0};S.months[cm].cats[c].forEach(function(it){var k=calc(c,it);t.wb+=k.wb;t.we+=k.we;t.wm+=k.wm});return t}
+var LIMIT=500;
+function sig(it){return n(it.pr)+"|"+n(it.e)}
+function high(it){return n(it.pr)*n(it.e)>LIMIT}
+function warn(it){return high(it)&&it.ok!==sig(it)}
+function warnCount(c){var m=S.months[cm];return m?(m.cats[c]||[]).filter(warn).length:0}
+function warnHtml(it,i){
+if(warn(it))return'<tr class="wr" data-w="'+i+'"><td colspan="10">\u26A0 Waarde eind is '+fm.format(n(it.pr)*n(it.e))+', meer dan '+fm.format(LIMIT)+'. Controleer prijs en aantal.<button data-ok="'+i+'">Klopt toch</button></td></tr>';
+return'';
+}
 function cls(v){return v<0?"neg":v>0?"pos":""}
 function hotelBar(){
 var h="";
@@ -183,7 +199,7 @@ $("months").innerHTML=h;
 }
 function tabs(){
 var h='<button data-t="Overview" class="'+(cur==="Overview"?"on":"")+'">Overview</button>';
-CATS.forEach(function(c){h+='<button data-t="'+c+'" class="'+(cur===c?"on":"")+'">'+c+'</button>'});
+CATS.forEach(function(c){var w=warnCount(c);h+='<button data-t="'+c+'" class="'+(cur===c?"on":"")+'">'+c+(w?'<span class="dot" title="Te controleren">'+w+'</span>':'')+'</button>'});
 $("tabs").innerHTML=h;
 }
 function overview(){
@@ -191,18 +207,20 @@ var h='<h2>Overview '+label(cm)+'</h2><div class="wrap"><table><thead><tr><th>Ca
 CATS.forEach(function(c){var t=tot(c);T.wb+=t.wb;T.we+=t.we;T.wm+=t.wm;
 h+='<tr><td>'+c+'</td><td>'+fm.format(t.wb)+'</td><td>'+fm.format(t.we)+'</td><td class="'+cls(t.wm)+'">'+fm.format(t.wm)+'</td></tr>'});
 h+='<tr class="tot"><td>TOTAAL</td><td>'+fm.format(T.wb)+'</td><td>'+fm.format(T.we)+'</td><td class="'+cls(T.wm)+'">'+fm.format(T.wm)+'</td></tr></tbody></table></div><p><button id="oexp">Exporteer CSV</button></p>';
+var W=CATS.reduce(function(a,c){return a+warnCount(c)},0);
+if(W)h='<p class="neg" style="margin:0 0 10px;font-weight:600">\u26A0 '+W+' product'+(W>1?'en':'')+' met een waarde eind boven '+fm.format(LIMIT)+' nog niet bevestigd. Zie de rode tabbladen.</p>'+h;
 $("view").innerHTML=h;
 }
 function rowHtml(c,it,i){
 var k=calc(c,it);
 var o=k.auto?src(c,it):it;
-return '<tr data-i="'+i+'">'+(k.auto?'<td class="ro" title="Automatisch uit de vorige maand">'+esc(o.p)+'</td>':'<td><input data-f="p" value="'+esc(it.p)+'" placeholder="Product"></td>')
+return '<tr data-i="'+i+'"'+(warn(it)?' class="bad"':'')+'>'+(k.auto?'<td class="ro" title="Automatisch uit de vorige maand">'+esc(o.p)+'</td>':'<td><input data-f="p" value="'+esc(it.p)+'" placeholder="Product"></td>')
 +(k.auto?'<td class="c ro" data-l="Eenheid" title="Automatisch uit de vorige maand">'+esc(o.u)+'</td>':'<td data-l="Eenheid"><input data-f="u" value="'+esc(it.u)+'" placeholder="stuks" style="width:80px"></td>')
 +'<td data-l="Prijs excl. BTW"><input data-f="pr" type="number" step="any" min="0" value="'+esc(it.pr)+'" style="width:84px"></td>'
 +(k.auto?'<td class="c ro" data-l="Begin" title="Automatisch: eindvoorraad vorige maand">'+fq.format(k.b)+'</td>':'<td data-l="Begin"><input data-f="b" type="number" step="any" value="'+esc(it.b)+'" style="width:84px"></td>')
 +'<td data-l="Eind"><input data-f="e" type="number" step="any" value="'+esc(it.e)+'" style="width:84px"></td>'
-+'<td class="c k-f" data-l="Beweging">'+fq.format(k.f)+'</td><td class="c k-wb" data-l="Waarde begin">'+fm.format(k.wb)+'</td><td class="c k-we" data-l="Waarde eind">'+fm.format(k.we)+'</td><td class="c k-wm" data-l="Waarde beweging">'+fm.format(k.wm)+'</td>'
-+'<td class="d"><button class="x" data-del="'+i+'" aria-label="Verwijder"'+(canDel(c,it)?'':' disabled title="Verwijderen kan enkel als begin en eind 0 zijn"')+'>✕</button></td></tr>';
++'<td class="c k-f" data-l="Beweging">'+fq.format(k.f)+'</td><td class="c k-wb" data-l="Waarde begin">'+fm.format(k.wb)+'</td><td class="c k-we" data-l="Waarde eind">'+fm.format(k.we)+(high(it)&&!warn(it)?'<span class="okd" title="Bevestigd door het hotel">\u2713 bevestigd</span>':'')+'</td><td class="c k-wm" data-l="Waarde beweging">'+fm.format(k.wm)+'</td>'
++'<td class="d"><button class="x" data-del="'+i+'" aria-label="Verwijder"'+(canDel(c,it)?'':' disabled title="Verwijderen kan enkel als begin en eind 0 zijn"')+'>✕</button></td></tr>'+warnHtml(it,i);
 }
 function category(c){
 var items=S.months[cm].cats[c];
@@ -273,7 +291,7 @@ var chain=Promise.resolve();
 if(!id){id=uid();var nid=id;chain=chain.then(function(){return db.doc("hotels/"+nid).set({name:name})})}
 ks.forEach(function(k){
 var m=o.months[k]||{},x={datum:String(m.datum||""),removed:Array.isArray(m.removed)?m.removed:[],cats:{}},hid2=id;
-CATS.forEach(function(c){x.cats[c]=((m.cats||{})[c]||[]).map(function(it){return{id:String(it.id),p:String(it.p||""),u:String(it.u||""),pr:String(it.pr==null?"":it.pr),b:String(it.b==null?"":it.b),e:String(it.e==null?"":it.e)}})});
+CATS.forEach(function(c){x.cats[c]=((m.cats||{})[c]||[]).map(function(it){return{id:String(it.id),p:String(it.p||""),u:String(it.u||""),pr:String(it.pr==null?"":it.pr),b:String(it.b==null?"":it.b),e:String(it.e==null?"":it.e),ok:String(it.ok||"")}})});
 chain=chain.then(function(){return db.doc("hotels/"+hid2+"/months/"+k).set(x)});
 });
 st.textContent="Bezig…";
@@ -312,7 +330,7 @@ var t=e.target,m=t.getAttribute("data-m");
 if(m){cm=m;show()}
 else if(t.id==="madd"){var v=$("mnew").value;if(!v||!canWrite)return;if(!S.months[v]){newMonth(v);scheduleSave(v)}cm=v;show()}
 };
-$("tabs").onclick=function(e){var t=e.target.getAttribute("data-t");if(t){cur=t;show()}};
+$("tabs").onclick=function(e){var b=e.target.closest("button"),t=b&&b.getAttribute("data-t");if(t){cur=t;show()}};
 $("datum").oninput=function(){if(!canWrite||!S.months[cm]||lockedFor(cm))return;S.months[cm].datum=this.value;scheduleSave(cm)};
 $("view").addEventListener("input",function(e){
 var f=e.target.getAttribute("data-f");if(!f||!canWrite||lockedFor(cm))return;
@@ -320,7 +338,10 @@ var tr=e.target.closest("tr"),it=S.months[cm].cats[cur][+tr.getAttribute("data-i
 it[f]=e.target.value;var k=calc(cur,it);
 tr.querySelector(".k-f").textContent=fq.format(k.f);tr.querySelector(".k-wb").textContent=fm.format(k.wb);
 tr.querySelector(".k-we").textContent=fm.format(k.we);tr.querySelector(".k-wm").textContent=fm.format(k.wm);
-var xb=tr.querySelector(".x");if(xb)xb.disabled=!canDel(cur,it);if(isAdmin){var dm=$("delmbtn");dm.disabled=!monthEmpty(cm)||isLocked(hid,cm)}
+var bad=warn(it);tr.classList.toggle("bad",bad);var nx=tr.nextElementSibling,hasW=nx&&nx.classList.contains("wr");
+if(hasW)nx.remove();if(bad)tr.insertAdjacentHTML("afterend",warnHtml(it,+tr.getAttribute("data-i")));
+var od=tr.querySelector(".okd");if(od)od.remove();if(high(it)&&!bad)tr.querySelector(".k-we").insertAdjacentHTML("beforeend",'<span class="okd">\u2713 bevestigd</span>');
+tabs();var xb=tr.querySelector(".x");if(xb)xb.disabled=!canDel(cur,it);if(isAdmin){var dm=$("delmbtn");dm.disabled=!monthEmpty(cm)||isLocked(hid,cm)}
 totals();scheduleSave(cm);
 });
 $("view").addEventListener("click",function(e){
@@ -331,6 +352,10 @@ if(t.id==="oexp"){saveCsv("overzicht-"+slug(H[hid])+"-"+cm+".csv",overviewRows()
 if(t.id==="impgo"){doImport();return}
 if(t.id==="aload"){allMonth=$("amonth").value||allMonth;loadAll();return}
 if(!canWrite||lockedFor(cm))return;
+if(t.hasAttribute("data-ok")){
+var it1=S.months[cm].cats[cur][+t.getAttribute("data-ok")];if(!it1)return;
+if(!t.getAttribute("data-sure")){t.setAttribute("data-sure","1");t.textContent="Bevestig: deze waarde klopt";return}
+it1.ok=sig(it1);scheduleSave(cm);show();return}
 if(t.id==="add"){S.months[cm].cats[cur].push({id:uid(),p:"",u:"",pr:"",b:"",e:""});scheduleSave(cm);show();var ins=document.querySelectorAll('tr[data-i] input[data-f="p"]');ins[ins.length-1].focus()}
 else if(t.hasAttribute("data-del")){
 var i=+t.getAttribute("data-del");
