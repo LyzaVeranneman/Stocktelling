@@ -83,7 +83,7 @@ tr.wr button{margin-left:8px;border-color:var(--bad);color:var(--bad)}
 </div>
 <div class="tabs" id="tabs"></div>
 <div class="card" id="view"></div>
-<p class="hint">Enkel de gele cellen moeten ingevuld worden. De beginvoorraad van een maand is automatisch de eindvoorraad van de vorige maand. Alles wordt gedeeld bewaard. Producten en eenheden worden automatisch overgenomen uit de vorige maand; pas ze aan in de eerste maand waarin het product voorkomt. Een product verwijderen kan enkel als begin en eind 0 zijn. De beheerder kan een maand afsluiten. Elk hotel ziet enkel zijn eigen gegevens.</p>
+<p class="hint">Enkel de gele cellen moeten ingevuld worden. De beginvoorraad van een maand is automatisch de eindvoorraad van de vorige maand. Alles wordt gedeeld bewaard. Producten, eenheden en prijzen worden automatisch overgenomen uit de vorige maand. Product en eenheid pas je aan in de eerste maand waarin het product voorkomt; de prijs kan je in elke maand aanpassen. Een gewijzigde prijs geldt ook voor de volgende maanden, tot je daar zelf een andere prijs invult. Een product verwijderen kan enkel als begin en eind 0 zijn. De beheerder kan een maand afsluiten. Elk hotel ziet enkel zijn eigen gegevens.</p>
 </main>
 <script>if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})</script>
 <script src="js/supabase.min.js"></script>
@@ -157,10 +157,19 @@ var prev=S.months[shift(k,-1)];if(!prev||isLocked(hid,k))return;var m=S.months[k
 CATS.forEach(function(c){
 var ids=m.cats[c].map(function(i){return i.id});
 prev.cats[c].forEach(function(it){if(ids.indexOf(it.id)<0&&m.removed.indexOf(it.id)<0){m.cats[c].push({id:it.id,p:it.p,u:it.u,pr:it.pr,b:"",e:""});add=true}});
+m.cats[c].forEach(function(x){if(String(x.pr==null?"":x.pr)!=="")return;var pi=prev.cats[c].filter(function(i){return i.id===x.id})[0];if(pi&&String(pi.pr==null?"":pi.pr)!==""){x.pr=pi.pr;add=true}});
 });
 if(add)ch.push(k);
 });
 return ch;
+}
+function passPrice(c,id,old,nw){
+var k=shift(cm,1);
+while(S.months[k]&&!isLocked(hid,k)){
+var x=S.months[k].cats[c].filter(function(i){return i.id===id})[0];
+if(!x||String(x.pr==null?"":x.pr)!==old)break;
+x.pr=nw;scheduleSave(k);k=shift(k,1);
+}
 }
 function prevItem(k,c,id){var p=S.months[shift(k,-1)];if(!p)return null;return p.cats[c].filter(function(i){return i.id===id})[0]||null}
 function src(c,it){
@@ -218,7 +227,7 @@ var k=calc(c,it);
 var o=k.auto?src(c,it):it;
 return '<tr data-i="'+i+'"'+(warn(it)?' class="bad"':'')+'>'+(k.auto?'<td class="ro" title="Automatisch uit de vorige maand">'+esc(o.p)+'</td>':'<td><input data-f="p" value="'+esc(it.p)+'" placeholder="Product"></td>')
 +(k.auto?'<td class="c ro" data-l="Eenheid" title="Automatisch uit de vorige maand">'+esc(o.u)+'</td>':'<td data-l="Eenheid"><input data-f="u" value="'+esc(it.u)+'" placeholder="stuks" style="width:80px"></td>')
-+'<td data-l="Prijs excl. BTW"><input data-f="pr" type="number" step="any" min="0" value="'+esc(it.pr)+'" style="width:84px"></td>'
++'<td data-l="Prijs excl. BTW"><input data-f="pr" type="number" step="any" min="0" value="'+esc(it.pr)+'" style="width:84px"'+(k.auto?' title="Overgenomen uit de vorige maand, aanpasbaar"':'')+'></td>'
 +(k.auto?'<td class="c ro" data-l="Begin" title="Automatisch: eindvoorraad vorige maand">'+fq.format(k.b)+'</td>':'<td data-l="Begin"><input data-f="b" type="number" step="any" value="'+esc(it.b)+'" style="width:84px"></td>')
 +'<td data-l="Eind"><input data-f="e" type="number" step="any" value="'+esc(it.e)+'" style="width:84px"></td>'
 +'<td class="c k-f" data-l="Beweging">'+fq.format(k.f)+'</td><td class="c k-wb" data-l="Waarde begin">'+fm.format(k.wb)+'</td><td class="c k-we" data-l="Waarde eind">'+fm.format(k.we)+(high(it)&&!warn(it)?'<span class="okd" title="Bevestigd door het hotel">\u2713 bevestigd</span>':'')+'</td><td class="c k-wm" data-l="Waarde beweging">'+fm.format(k.wm)+'</td>'
@@ -337,7 +346,8 @@ $("datum").oninput=function(){if(!canWrite||!S.months[cm]||lockedFor(cm))return;
 $("view").addEventListener("input",function(e){
 var f=e.target.getAttribute("data-f");if(!f||!canWrite||lockedFor(cm))return;
 var tr=e.target.closest("tr"),it=S.months[cm].cats[cur][+tr.getAttribute("data-i")];
-it[f]=e.target.value;var k=calc(cur,it);
+var old=String(it[f]==null?"":it[f]);it[f]=e.target.value;var k=calc(cur,it);
+if(f==="pr")passPrice(cur,it.id,old,it.pr);
 tr.querySelector(".k-f").textContent=fq.format(k.f);tr.querySelector(".k-wb").textContent=fm.format(k.wb);
 tr.querySelector(".k-we").textContent=fm.format(k.we);tr.querySelector(".k-wm").textContent=fm.format(k.wm);
 var bad=warn(it);tr.classList.toggle("bad",bad);var nx=tr.nextElementSibling,hasW=nx&&nx.classList.contains("wr");
