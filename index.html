@@ -2,6 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stocktelling</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -85,7 +86,7 @@ tr.wr button{margin-left:8px;border-color:var(--bad);color:var(--bad)}
 <p class="hint">Enkel de gele cellen moeten ingevuld worden. De beginvoorraad van een maand is automatisch de eindvoorraad van de vorige maand. Alles wordt gedeeld bewaard. Producten en eenheden worden automatisch overgenomen uit de vorige maand; pas ze aan in de eerste maand waarin het product voorkomt. Een product verwijderen kan enkel als begin en eind 0 zijn. De beheerder kan een maand afsluiten. Elk hotel ziet enkel zijn eigen gegevens.</p>
 </main>
 <script>if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})</script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/supabase.min.js"></script>
 <script src="config.js"></script>
 <script src="supabase-adapter.js"></script>
 <script>
@@ -106,7 +107,8 @@ function canDel(c,it){return isAdmin||(calc(c,it).b===0&&n(it.e)===0)}
 function setClosed(h,k,v){if(!db||!isAdmin)return;db.doc("locks/"+h+"_"+k).set({closed:v}).catch(showErr)}
 function onLocks(snap){L={};snap.docs.forEach(function(d){if((d.data()||{}).closed)L[d.id]=true});if(!typing())show()}
 function lc(id){return'<td class="c"><button data-lock="'+id+'">'+(isLocked(id,allMonth)?"\uD83D\uDD12 Heropenen":"Afsluiten")+'</button></td>'}
-function csv(rows){return "\uFEFF"+rows.map(function(r){return r.map(function(v){return typeof v==="number"?String(Math.round(v*100)/100).replace(".",","):'"'+String(v==null?"":v).replace(/"/g,'""')+'"'}).join(";")}).join("\r\n")}
+function cell(v){var s=String(v==null?"":v);if(/^[=+\-@\t\r\n]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
+function csv(rows){return "\uFEFF"+rows.map(function(r){return r.map(function(v){return typeof v==="number"?String(Math.round(v*100)/100).replace(".",","):cell(v)}).join(";")}).join("\r\n")}
 function saveCsv(name,rows){
 if(!dl){$("st").textContent="Downloaden is hier niet beschikbaar";return}
 dl.save({filename:name,data:new Blob([csv(rows)],{type:"text/csv;charset=utf-8"})}).catch(function(e){if(!e||e.code!=="declined")$("st").textContent="Exporteren mislukt"+(e&&e.code?" ("+e.code+")":"")});
@@ -188,7 +190,7 @@ h=hid?'<strong>'+esc(H[hid]||"")+'</strong>':'<input id="hnew" placeholder="Naam
 }else{
 var ids=Object.keys(H).sort(function(a,b){return H[a].localeCompare(H[b])});h='<label style="margin:0">Hotel</label>';
 if(ids.length){h+='<select id="hsel">';ids.forEach(function(i){h+='<option value="'+i+'"'+(i===hid&&!allView?" selected":"")+'>'+esc(H[i])+'</option>'});h+='</select>'}
-h+='<input id="hnew" placeholder="Nieuw hotel" aria-label="Nieuw hotel"><button id="hadd">+ Hotel</button><button id="hall" class="'+(allView?"on":"")+'">Alle hotels</button>';
+h+='<input id="hnew" placeholder="Nieuw hotel" aria-label="Nieuw hotel"><button id="hadd">+ Hotel</button><button id="hall" class="'+(allView?"on":"")+'">Alle hotels</button><button id="himp" class="'+(impView?"on":"")+'">Importeer</button>';
 }
 $("hotels").innerHTML=h;
 }
