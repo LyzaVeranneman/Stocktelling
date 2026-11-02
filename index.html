@@ -83,7 +83,7 @@ tr.wr button{margin-left:8px;border-color:var(--bad);color:var(--bad)}
 </div>
 <div class="tabs" id="tabs"></div>
 <div class="card" id="view"></div>
-<p class="hint">Enkel de gele cellen moeten ingevuld worden. De beginvoorraad van een maand is automatisch de eindvoorraad van de vorige maand. Alles wordt gedeeld bewaard. Producten, eenheden en prijzen worden automatisch overgenomen uit de vorige maand. Product en eenheid pas je aan in de eerste maand waarin het product voorkomt; de prijs kan je in elke maand aanpassen. Een gewijzigde prijs geldt ook voor de volgende maanden, tot je daar zelf een andere prijs invult. Een product verwijderen kan enkel als begin en eind 0 zijn. De beheerder kan een maand afsluiten. Elk hotel ziet enkel zijn eigen gegevens.</p>
+<p class="hint">Enkel de gele cellen moeten ingevuld worden. De beginvoorraad en de waarde begin van een maand zijn automatisch de eindvoorraad en de waarde eind van de vorige maand. Alles wordt gedeeld bewaard. Producten, eenheden en prijzen worden automatisch overgenomen uit de vorige maand. Product en eenheid pas je aan in de eerste maand waarin het product voorkomt; de prijs kan je in elke maand aanpassen. Een gewijzigde prijs geldt ook voor de volgende maanden, tot je daar zelf een andere prijs invult. Een product verwijderen kan enkel als begin en eind 0 zijn. De beheerder kan een maand afsluiten. Elk hotel ziet enkel zijn eigen gegevens.</p>
 </main>
 <script>if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})</script>
 <script src="js/supabase.min.js"></script>
@@ -178,8 +178,8 @@ while(true){var p=S.months[shift(k,-1)],pi=p&&p.cats[c].filter(function(i){retur
 return x;
 }
 function calc(c,it){
-var pi=prevItem(cm,c,it.id),b=pi?n(pi.e):n(it.b),f=n(it.e)-b,pr=n(it.pr);
-return{auto:!!pi,b:b,f:f,wb:pr*b,we:pr*n(it.e),wm:pr*f};
+var pi=prevItem(cm,c,it.id),b=pi?n(pi.e):n(it.b),f=n(it.e)-b,pr=n(it.pr),wb=pi?n(pi.pr)*n(pi.e):pr*b,we=pr*n(it.e);
+return{auto:!!pi,b:b,f:f,wb:wb,we:we,wm:we-wb};
 }
 function tot(c){var t={wb:0,we:0,wm:0};S.months[cm].cats[c].forEach(function(it){var k=calc(c,it);t.wb+=k.wb;t.we+=k.we;t.wm+=k.wm});return t}
 var LIMIT=500;
@@ -277,7 +277,7 @@ var m=M[mk],pv=M[shift(mk,-1)],t={wb:0,we:0,wm:0};
 if(!m){h+='<tr><td>'+esc(H[ids[i]])+'</td><td colspan="3" class="ro">Geen gegevens voor deze maand</td>'+lc(ids[i])+'</tr>';return}
 CATS.forEach(function(c){((m.cats||{})[c]||[]).forEach(function(it){
 var pi=pv&&((pv.cats||{})[c]||[]).filter(function(x){return x.id===it.id})[0],b=pi?n(pi.e):n(it.b),pr=n(it.pr);
-t.wb+=pr*b;t.we+=pr*n(it.e);t.wm+=pr*(n(it.e)-b)})});
+var wb=pi?n(pi.pr)*n(pi.e):pr*b,we=pr*n(it.e);t.wb+=wb;t.we+=we;t.wm+=we-wb})});
 T.wb+=t.wb;T.we+=t.we;T.wm+=t.wm;
 h+='<tr><td>'+esc(H[ids[i]])+'</td><td>'+fm.format(t.wb)+'</td><td>'+fm.format(t.we)+'</td><td class="'+cls(t.wm)+'">'+fm.format(t.wm)+'</td>'+lc(ids[i])+'</tr>';rows.push([H[ids[i]],t.wb,t.we,t.wm]);
 });
