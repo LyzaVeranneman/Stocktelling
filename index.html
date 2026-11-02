@@ -116,10 +116,10 @@ dl.save({filename:name,data:new Blob([csv(rows)],{type:"text/csv;charset=utf-8"}
 function slug(t){return String(t||"hotel").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"hotel"}
 function overviewRows(){
 var rows=[["Categorie","Waarde begin","Waarde eind","Waarde beweging"]],T={wb:0,we:0,wm:0};
-CATS.forEach(function(c){var t=tot(c);T.wb+=t.wb;T.we+=t.we;T.wm+=t.wm;rows.push([c,t.wb,t.we,t.wm])});
+curCats().forEach(function(c){var t=tot(c);T.wb+=t.wb;T.we+=t.we;T.wm+=t.wm;rows.push([c,t.wb,t.we,t.wm])});
 rows.push(["TOTAAL",T.wb,T.we,T.wm]);return rows;
 }
-function monthEmpty(k){var m=S.months[k];if(!m)return false;if(String(m.datum||"").trim())return false;return CATS.every(function(c){return(m.cats[c]||[]).every(function(it){return!String(it.b==null?"":it.b).trim()&&!String(it.e==null?"":it.e).trim()})})}
+function monthEmpty(k){var m=S.months[k];if(!m)return false;if(String(m.datum||"").trim())return false;return Object.keys(m.cats||{}).every(function(c){return(m.cats[c]||[]).every(function(it){return!String(it.b==null?"":it.b).trim()&&!String(it.e==null?"":it.e).trim()})})}
 function delMonth(){
 var k=cm,h=hid,b=$("delmbtn");if(!isAdmin||!k||!h)return;
 if(isLocked(h,k)){$("st").textContent="Heropen de maand eerst";return}
@@ -132,8 +132,34 @@ if(!keys().length){newMonth(today);scheduleSave(today)}
 cm="";$("st").textContent="Maand verwijderd";show();
 }).catch(function(e){b.disabled=false;showErr(e)});
 }
-function newMonth(k){var m={datum:"",removed:[],cats:{}};CATS.forEach(function(c){m.cats[c]=[]});S.months[k]=m}
+function newMonth(k){var m={datum:"",removed:[],cats:{}};allCats(hid).forEach(function(c){m.cats[c]=[]});S.months[k]=m}
 function keys(){return Object.keys(S.months).sort()}
+var SET={},setOk=null,catView=false;
+function cfg(h){var c=SET[h]||{};return{hidden:Array.isArray(c.hidden)?c.hidden:[],extra:Array.isArray(c.extra)?c.extra:[]}}
+function allCats(h){var x=cfg(h).extra.filter(function(c){return CATS.indexOf(c)<0});return CATS.concat(x)}
+function active(h,c){return cfg(h).hidden.indexOf(c)<0&&allCats(h).indexOf(c)>=0}
+function filled(m,c){return((m&&m.cats&&m.cats[c])||[]).some(function(it){return String(it.b==null?"":it.b).trim()!==""||String(it.e==null?"":it.e).trim()!==""})}
+function visCats(h,m){var l=allCats(h);if(m&&m.cats)Object.keys(m.cats).forEach(function(c){if(l.indexOf(c)<0&&filled(m,c))l.push(c)});return l.filter(function(c){return active(h,c)||filled(m,c)})}
+function curCats(){return visCats(hid,S.months[cm])}
+function tok(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)){var o=JSON.parse(localStorage.getItem(k));o=o&&(o.access_token?o:o.currentSession);if(o&&o.access_token)return o.access_token}}}catch(e){}return""}
+function rest(method,q,body){
+if(typeof SUPABASE_URL!=="string"||typeof SUPABASE_ANON_KEY!=="string")return Promise.reject(new Error("geen config"));
+return fetch(SUPABASE_URL.replace(/\/$/,"")+"/rest/v1/hotel_settings"+q,{method:method,headers:{apikey:SUPABASE_ANON_KEY,Authorization:"Bearer "+(tok()||SUPABASE_ANON_KEY),"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:body?JSON.stringify(body):undefined}).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return method==="GET"?r.json():null});
+}
+function loadSettings(){
+return rest("GET","?select=hotel_id,cfg").then(function(rows){var o={};(rows||[]).forEach(function(r){if(r&&r.hotel_id)o[r.hotel_id]=r.cfg||{}});SET=o;setOk=true},function(){setOk=false}).then(function(){if(!typing())show()});
+}
+function saveSettings(h,c){
+var st=$("catst");if(st)st.textContent="Opslaan…";SET[h]=c;show();
+rest("POST","?on_conflict=hotel_id",{hotel_id:h,cfg:c}).then(function(){var s2=$("catst");if(s2)s2.textContent="Opgeslagen"},function(e){var s2=$("catst");if(s2)s2.textContent="Opslaan mislukt ("+e.message+"). Is categorieen.sql uitgevoerd?";loadSettings()});
+}
+function viewCats(){
+var c=cfg(hid),h='<h2>Categorieën voor '+esc(H[hid]||"")+'</h2><p class="hint" style="margin:0 0 10px">Enkel editors zien dit. Een uitgevinkte categorie verdwijnt voor dit hotel uit de tabbladen, het overzicht en de totalen, vanaf de maand waarin ze niet meer ingevuld is. Vroegere maanden met ingevulde waardes blijven ze tonen. Opnieuw aanvinken brengt alles terug.</p>';
+if(setOk===false)h+='<p class="neg">De instellingen konden niet geladen worden. Voer eerst categorieen.sql uit in Supabase en ververs de pagina.</p>';
+allCats(hid).forEach(function(k){h+='<label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--tx);margin:6px 0"><input type="checkbox" data-cat="'+esc(k)+'" style="width:auto;min-height:0"'+(c.hidden.indexOf(k)<0?" checked":"")+'>'+esc(k)+(CATS.indexOf(k)<0?' <span class="ro">(eigen categorie)</span>':'')+'</label>'});
+h+='<div class="months" style="margin-top:12px"><input id="catnew" placeholder="Nieuwe categorie" maxlength="40" style="width:200px"><button id="catadd">+ Categorie</button></div><p class="hint" id="catst"></p><p><button id="catback" class="p">Terug naar de telling</button></p>';
+$("view").innerHTML=h;
+}
 var now=new Date(),today=keyOf(now.getFullYear(),now.getMonth()+1);
 var fm=new Intl.NumberFormat("nl-BE",{style:"currency",currency:"EUR"}),fq=new Intl.NumberFormat("nl-BE",{maximumFractionDigits:2});
 function status(){var d=Object.keys(dirty).some(function(k){return dirty[k]});$("st").textContent=d?"Opslaan…":"Opgeslagen";}
@@ -154,10 +180,10 @@ function sync(){
 var ch=[];
 keys().forEach(function(k){
 var prev=S.months[shift(k,-1)];if(!prev||isLocked(hid,k))return;var m=S.months[k],add=false;
-CATS.forEach(function(c){
+allCats(hid).forEach(function(c){if(!active(hid,c))return;if(!m.cats[c])m.cats[c]=[];if(!prev.cats[c])return;
 var ids=m.cats[c].map(function(i){return i.id});
 prev.cats[c].forEach(function(it){if(ids.indexOf(it.id)<0&&m.removed.indexOf(it.id)<0){m.cats[c].push({id:it.id,p:it.p,u:it.u,pr:it.pr,b:"",e:""});add=true}});
-m.cats[c].forEach(function(x){if(String(x.pr==null?"":x.pr)!=="")return;var pi=prev.cats[c].filter(function(i){return i.id===x.id})[0];if(pi&&String(pi.pr==null?"":pi.pr)!==""){x.pr=pi.pr;add=true}});
+m.cats[c].forEach(function(x){if(String(x.pr==null?"":x.pr)!=="")return;var pi=(prev.cats[c]||[]).filter(function(i){return i.id===x.id})[0];if(pi&&String(pi.pr==null?"":pi.pr)!==""){x.pr=pi.pr;add=true}});
 });
 if(add)ch.push(k);
 });
@@ -166,22 +192,22 @@ return ch;
 function passPrice(c,id,old,nw){
 var k=shift(cm,1);
 while(S.months[k]&&!isLocked(hid,k)){
-var x=S.months[k].cats[c].filter(function(i){return i.id===id})[0];
+var x=(S.months[k].cats[c]||[]).filter(function(i){return i.id===id})[0];
 if(!x||String(x.pr==null?"":x.pr)!==old)break;
 x.pr=nw;scheduleSave(k);k=shift(k,1);
 }
 }
-function prevItem(k,c,id){var p=S.months[shift(k,-1)];if(!p)return null;return p.cats[c].filter(function(i){return i.id===id})[0]||null}
+function prevItem(k,c,id){var p=S.months[shift(k,-1)];if(!p)return null;return (p.cats[c]||[]).filter(function(i){return i.id===id})[0]||null}
 function src(c,it){
 var k=cm,x=it;
-while(true){var p=S.months[shift(k,-1)],pi=p&&p.cats[c].filter(function(i){return i.id===it.id})[0];if(!pi)break;x=pi;k=shift(k,-1)}
+while(true){var p=S.months[shift(k,-1)],pi=p&&(p.cats[c]||[]).filter(function(i){return i.id===it.id})[0];if(!pi)break;x=pi;k=shift(k,-1)}
 return x;
 }
 function calc(c,it){
 var pi=prevItem(cm,c,it.id),b=pi?n(pi.e):n(it.b),f=n(it.e)-b,pr=n(it.pr),wb=pi?n(pi.pr)*n(pi.e):pr*b,we=pr*n(it.e);
 return{auto:!!pi,b:b,f:f,wb:wb,we:we,wm:we-wb};
 }
-function tot(c){var t={wb:0,we:0,wm:0};S.months[cm].cats[c].forEach(function(it){var k=calc(c,it);t.wb+=k.wb;t.we+=k.we;t.wm+=k.wm});return t}
+function tot(c){var t={wb:0,we:0,wm:0};(S.months[cm].cats[c]||[]).forEach(function(it){var k=calc(c,it);t.wb+=k.wb;t.we+=k.we;t.wm+=k.wm});return t}
 var LIMIT=500;
 function sig(it){return n(it.pr)+"|"+n(it.e)}
 function high(it){return n(it.pr)*n(it.e)>LIMIT}
@@ -199,7 +225,7 @@ h=hid?'<strong>'+esc(H[hid]||"")+'</strong>':'<input id="hnew" placeholder="Naam
 }else{
 var ids=Object.keys(H).sort(function(a,b){return H[a].localeCompare(H[b])});h='<label style="margin:0">Hotel</label>';
 if(ids.length){h+='<select id="hsel">';ids.forEach(function(i){h+='<option value="'+i+'"'+(i===hid&&!allView?" selected":"")+'>'+esc(H[i])+'</option>'});h+='</select>'}
-h+='<input id="hnew" placeholder="Nieuw hotel" aria-label="Nieuw hotel"><button id="hadd">+ Hotel</button><button id="hall" class="'+(allView?"on":"")+'">Alle hotels</button><button id="himp" class="'+(impView?"on":"")+'">Importeer</button>';
+h+='<input id="hnew" placeholder="Nieuw hotel" aria-label="Nieuw hotel"><button id="hadd">+ Hotel</button><button id="hall" class="'+(allView?"on":"")+'">Alle hotels</button><button id="himp" class="'+(impView?"on":"")+'">Importeer</button>'+(hid?'<button id="hcat" class="'+(catView&&!allView&&!impView?"on":"")+'">Categorieën</button>':'');
 }
 $("hotels").innerHTML=h;
 }
@@ -210,15 +236,16 @@ $("months").innerHTML=h;
 }
 function tabs(){
 var h='<button data-t="Overview" class="'+(cur==="Overview"?"on":"")+'">Overview</button>';
-CATS.forEach(function(c){var w=warnCount(c);h+='<button data-t="'+c+'" class="'+(cur===c?"on":"")+'">'+c+(w?'<span class="dot" title="Te controleren">'+w+'</span>':'')+'</button>'});
+if(cur!=="Overview"&&curCats().indexOf(cur)<0)cur="Overview";
+curCats().forEach(function(c){var w=warnCount(c);h+='<button data-t="'+c+'" class="'+(cur===c?"on":"")+'">'+c+(w?'<span class="dot" title="Te controleren">'+w+'</span>':'')+'</button>'});
 $("tabs").innerHTML=h;
 }
 function overview(){
 var h='<h2>Overview '+label(cm)+'</h2><div class="wrap"><table><thead><tr><th>Categorie</th><th>Waarde begin</th><th>Waarde eind</th><th>Waarde beweging</th></tr></thead><tbody>',T={wb:0,we:0,wm:0};
-CATS.forEach(function(c){var t=tot(c);T.wb+=t.wb;T.we+=t.we;T.wm+=t.wm;
+curCats().forEach(function(c){var t=tot(c);T.wb+=t.wb;T.we+=t.we;T.wm+=t.wm;
 h+='<tr><td>'+c+'</td><td>'+fm.format(t.wb)+'</td><td>'+fm.format(t.we)+'</td><td class="'+cls(t.wm)+'">'+fm.format(t.wm)+'</td></tr>'});
 h+='<tr class="tot"><td>TOTAAL</td><td>'+fm.format(T.wb)+'</td><td>'+fm.format(T.we)+'</td><td class="'+cls(T.wm)+'">'+fm.format(T.wm)+'</td></tr></tbody></table></div><p><button id="oexp">Exporteer CSV</button></p>';
-var W=CATS.reduce(function(a,c){return a+warnCount(c)},0);
+var W=curCats().reduce(function(a,c){return a+warnCount(c)},0);
 if(W)h='<p class="neg" style="margin:0 0 10px;font-weight:600">\u26A0 '+W+' product'+(W>1?'en':'')+' met een waarde eind boven '+fm.format(LIMIT)+' nog niet bevestigd. Zie de rode tabbladen.</p>'+h;
 $("view").innerHTML=h;
 }
@@ -253,6 +280,7 @@ $("st").textContent="Afgesloten";
 }
 function show(){
 hotelBar();$("lockbtn").hidden=true;$("delmbtn").hidden=true;
+if(catView&&isAdmin&&hid&&!allView&&!impView){$("months").innerHTML="";$("tabs").innerHTML="";viewCats();return}
 if(impView&&isAdmin){$("months").innerHTML="";$("tabs").innerHTML="";$("datum").value="";viewImport();return}
 if(allView&&isAdmin){$("months").innerHTML="";$("tabs").innerHTML="";$("datum").value="";viewAll();return}
 if(!hid){$("months").innerHTML="";$("tabs").innerHTML="";$("datum").value="";$("view").innerHTML='<p class="hint">'+(Object.keys(H).length?"Kies een hotel.":"Voeg eerst een hotel toe.")+'</p>';lock();return}
@@ -260,6 +288,7 @@ var ks=keys();
 if(!ks.length){$("months").innerHTML="";$("tabs").innerHTML="";$("view").innerHTML='<p class="hint">Laden…</p>';return}
 sync().forEach(scheduleSave);ks=keys();
 if(!S.months[cm])cm=ks.indexOf(today)>=0?today:ks[ks.length-1];
+allCats(hid).forEach(function(c){if(!S.months[cm].cats[c])S.months[cm].cats[c]=[]});
 $("datum").value=S.months[cm].datum||"";
 monthBar();tabs();cur==="Overview"?overview():category(cur);var lb=$("lockbtn");lb.hidden=!isAdmin;lb.textContent=isLocked(hid,cm)?"Maand heropenen":"Maand afsluiten";var dm=$("delmbtn");dm.hidden=!isAdmin;dm.removeAttribute("data-sure");dm.textContent="Maand verwijderen";dm.disabled=!monthEmpty(cm)||isLocked(hid,cm);dm.title=dm.disabled?"Enkel een open maand zonder ingevulde voorraad kan verwijderd worden":"";lock();
 }
@@ -275,7 +304,7 @@ snaps.forEach(function(sn,i){
 var M={};sn.docs.forEach(function(d){M[d.id]=d.data()});
 var m=M[mk],pv=M[shift(mk,-1)],t={wb:0,we:0,wm:0};
 if(!m){h+='<tr><td>'+esc(H[ids[i]])+'</td><td colspan="3" class="ro">Geen gegevens voor deze maand</td>'+lc(ids[i])+'</tr>';return}
-CATS.forEach(function(c){((m.cats||{})[c]||[]).forEach(function(it){
+visCats(ids[i],m).forEach(function(c){((m.cats||{})[c]||[]).forEach(function(it){
 var pi=pv&&((pv.cats||{})[c]||[]).filter(function(x){return x.id===it.id})[0],b=pi?n(pi.e):n(it.b),pr=n(it.pr);
 var wb=pi?n(pi.pr)*n(pi.e):pr*b,we=pr*n(it.e);t.wb+=wb;t.we+=we;t.wm+=we-wb})});
 T.wb+=t.wb;T.we+=t.we;T.wm+=t.wm;
@@ -302,7 +331,7 @@ var chain=Promise.resolve();
 if(!id){id=uid();var nid=id;chain=chain.then(function(){return db.doc("hotels/"+nid).set({name:name})})}
 ks.forEach(function(k){
 var m=o.months[k]||{},x={datum:String(m.datum||""),removed:Array.isArray(m.removed)?m.removed:[],cats:{}},hid2=id;
-CATS.forEach(function(c){x.cats[c]=((m.cats||{})[c]||[]).map(function(it){return{id:String(it.id),p:String(it.p||""),u:String(it.u||""),pr:String(it.pr==null?"":it.pr),b:String(it.b==null?"":it.b),e:String(it.e==null?"":it.e),ok:String(it.ok||"")}})});
+CATS.concat(Object.keys(m.cats||{}).filter(function(c){return CATS.indexOf(c)<0&&c.length<=60}).slice(0,20)).forEach(function(c){x.cats[c]=((m.cats||{})[c]||[]).map(function(it){return{id:String(it.id),p:String(it.p||""),u:String(it.u||""),pr:String(it.pr==null?"":it.pr),b:String(it.b==null?"":it.b),e:String(it.e==null?"":it.e),ok:String(it.ok||"")}})});
 chain=chain.then(function(){return db.doc("hotels/"+hid2+"/months/"+k).set(x)});
 });
 st.textContent="Bezig…";
@@ -310,12 +339,12 @@ chain.then(function(){st.textContent=ks.length+" maand(en) geïmporteerd voor "+
 }
 function typing(){var a=document.activeElement;return a&&a.tagName==="INPUT"&&a.closest&&a.closest("#view")}
 function onMonths(snap){
-snap.docs.forEach(function(d){if(!dirty[d.id]&&d.exists){var x=JSON.parse(JSON.stringify(d.data()));x.removed=x.removed||[];CATS.forEach(function(c){x.cats=x.cats||{};x.cats[c]=x.cats[c]||[]});S.months[d.id]=x}});
+snap.docs.forEach(function(d){if(!dirty[d.id]&&d.exists){var x=JSON.parse(JSON.stringify(d.data()));x.removed=x.removed||[];x.cats=x.cats||{};allCats(hid).forEach(function(c){x.cats[c]=x.cats[c]||[]});S.months[d.id]=x}});
 if(snap.empty&&!snap.metadata.fromCache&&!keys().length&&canWrite){newMonth(today);scheduleSave(today)}
 if(!typing())show();else sync().forEach(scheduleSave);
 }
 function selectHotel(id){
-flushAll();allView=false;impView=false;hid=id;try{localStorage.setItem("stocktelling-hotel",id)}catch(e){}
+flushAll();allView=false;impView=false;catView=false;hid=id;try{localStorage.setItem("stocktelling-hotel",id)}catch(e){}
 S={months:{}};dirty={};cm="";if(mUnsub)mUnsub();status();show();
 mUnsub=db.collection("hotels/"+id+"/months").onSnapshot(onMonths,showErr);
 }
@@ -330,8 +359,9 @@ var ids=Object.keys(H);if(H[last])selectHotel(last);else if(ids.length)selectHot
 else if(!typing())hotelBar();
 }
 $("hotels").onclick=function(e){
-if(e.target.id==="hall"){allView=true;impView=false;show();return}
-if(e.target.id==="himp"){impView=true;allView=false;show();return}
+if(e.target.id==="hall"){allView=true;impView=false;catView=false;show();return}
+if(e.target.id==="hcat"){catView=!catView;allView=false;impView=false;show();return}
+if(e.target.id==="himp"){impView=true;allView=false;catView=false;show();return}
 if(e.target.id==="hadd"){var v=$("hnew").value.trim();if(!v||!canWrite)return;var id=isAdmin?uid():myId;if(!id){$("st").textContent="Geen account gevonden";return}
 db.doc("hotels/"+id).set({name:v}).then(function(){selectHotel(id)}).catch(showErr)}
 };
@@ -362,6 +392,12 @@ if(t.getAttribute("data-lock")){var lh=t.getAttribute("data-lock");setClosed(lh,
 if(t.id==="aexp"){if(lastAll)saveCsv("overzicht-alle-hotels-"+allMonth+".csv",lastAll);return}
 if(t.id==="oexp"){saveCsv("overzicht-"+slug(H[hid])+"-"+cm+".csv",overviewRows());return}
 if(t.id==="impgo"){doImport();return}
+if(t.id==="catback"){catView=false;show();return}
+if(t.id==="catadd"&&isAdmin){var nv=$("catnew").value.trim().replace(/\s+/g," "),cc=cfg(hid),st=$("catst");
+if(!nv)return;if(nv.length>40){st.textContent="Maximaal 40 tekens.";return}
+if(nv.toLowerCase()==="overview"||allCats(hid).some(function(x){return x.toLowerCase()===nv.toLowerCase()})){var ex=allCats(hid).filter(function(x){return x.toLowerCase()===nv.toLowerCase()})[0];if(ex&&cc.hidden.indexOf(ex)>=0){saveSettings(hid,{hidden:cc.hidden.filter(function(x){return x!==ex}),extra:cc.extra});return}st.textContent="Deze categorie bestaat al.";return}
+if(cc.extra.length>=20){st.textContent="Maximaal 20 eigen categorieën.";return}
+saveSettings(hid,{hidden:cc.hidden,extra:cc.extra.concat([nv])});return}
 if(t.id==="aload"){allMonth=$("amonth").value||allMonth;loadAll();return}
 if(!canWrite||lockedFor(cm))return;
 if(t.hasAttribute("data-ok")){
@@ -373,11 +409,16 @@ else if(t.hasAttribute("data-del")){
 var i=+t.getAttribute("data-del");
 if(t.getAttribute("data-sure")){
 var it0=S.months[cm].cats[cur][i];if(!canDel(cur,it0))return;var id=it0.id;
-keys().forEach(function(k){if(k>=cm&&!lockedFor(k)){var m=S.months[k];m.cats[cur]=m.cats[cur].filter(function(x){return x.id!==id});if(m.removed.indexOf(id)<0)m.removed.push(id);scheduleSave(k)}});
+keys().forEach(function(k){if(k>=cm&&!lockedFor(k)){var m=S.months[k];m.cats[cur]=(m.cats[cur]||[]).filter(function(x){return x.id!==id});if(m.removed.indexOf(id)<0)m.removed.push(id);scheduleSave(k)}});
 show();
 }else{t.setAttribute("data-sure","1");t.textContent="Zeker?"}
 }
 });
+$("view").addEventListener("change",function(e){
+var c=e.target.getAttribute("data-cat");if(c===null||!isAdmin||!hid)return;var cc=cfg(hid),hd=cc.hidden.filter(function(x){return x!==c});
+if(!e.target.checked)hd.push(c);saveSettings(hid,{hidden:hd,extra:cc.extra});
+});
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&db)loadSettings()});
 $("delmbtn").onclick=delMonth;
 $("lockbtn").onclick=function(){if(hid&&cm)setClosed(hid,cm,!isLocked(hid,cm))};
 try{if(window.claude&&claude.use)claude.use("downloads").then(function(d){dl=d},function(){})}catch(e){}
@@ -390,6 +431,7 @@ if(!db){$("st").textContent="Niet beschikbaar";$("view").innerHTML='<p class="hi
 var u=r[1];
 return Promise.all([u&&u.can?u.can("data.write"):null,u&&u.canEdit?u.canEdit():false,u&&u.id?u.id():null]).then(function(w){
 canWrite=w[0]!==false;isAdmin=!!w[1];myId=w[2]||"";
+loadSettings();
 db.collection("locks").onSnapshot(onLocks,showErr);
 db.collection("hotels").onSnapshot(onHotels,showErr);
 });
