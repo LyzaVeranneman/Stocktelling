@@ -43,7 +43,7 @@ sb.from("editors").select("user_id").eq("user_id",me.id).then(function(r){editor
 sb.auth.getSession().then(function(r){if(r.data&&r.data.session)start(r.data.session)});
 function login(){
 sb.auth.signInWithPassword({email:$("le").value.trim(),password:$("lp").value}).then(function(r){
-if(r.error||!r.data.session){$("lm").textContent="Aanmelden mislukt";return}
+if(r.error||!r.data.session){$("lm").textContent="Aanmelden mislukt: "+(r.error?r.error.message:"geen sessie");return}
 start(r.data.session);
 });
 }
