@@ -104,7 +104,7 @@ function uid(){return"p"+Date.now().toString(36)+Math.random().toString(36).slic
 function isLocked(h,k){return !!L[h+"_"+k]}
 function lockedFor(k){return !isAdmin&&!!hid&&isLocked(hid,k)}
 function canDel(c,it){return isAdmin||(calc(c,it).b===0&&n(it.e)===0)}
-function setClosed(h,k,v){if(!db||!isAdmin)return;db.doc("locks/"+h+"_"+k).set({closed:v}).catch(showErr)}
+function setClosed(h,k,v){if(!db||!isAdmin)return;db.doc("locks/"+h+"_"+k).set({closed:v}).then(function(){if(v)L[h+"_"+k]=true;else delete L[h+"_"+k];show()}).catch(showErr)}
 function onLocks(snap){L={};snap.docs.forEach(function(d){if((d.data()||{}).closed)L[d.id]=true});if(!typing())show()}
 function lc(id){return'<td class="c"><button data-lock="'+id+'">'+(isLocked(id,allMonth)?"\uD83D\uDD12 Heropenen":"Afsluiten")+'</button></td>'}
 function cell(v){var s=String(v==null?"":v);if(/^[=+\-@\t\r\n]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
