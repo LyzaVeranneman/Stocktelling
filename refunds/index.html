@@ -30,6 +30,7 @@ button.p{background:var(--ac);color:var(--acx);border-color:var(--ac)}
 button.ok{border-color:var(--pos);color:var(--pos)}button.no{border-color:var(--bad);color:var(--bad)}
 .hint{color:var(--mut);font-size:12px}
 .err{color:var(--bad);font-size:13px}
+.chk{font-size:12px;margin-top:4px;min-height:16px}.chk.ok{color:var(--pos)}.chk.no{color:var(--bad)}.chk.warn{color:var(--warn)}
 .top{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--bd)}
 .top div{max-width:1100px;margin:0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px}
 .top strong{flex:1;font-size:16px}
@@ -113,12 +114,37 @@ function iso(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate
 function dat(s){if(!s)return"";var p=String(s).slice(0,10).split("-");return p[2]+"/"+p[1]+"/"+p[0]}
 function ibanFmt(s){return String(s||"").replace(/(.{4})/g,"$1 ").trim()}
 function clean(s){return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}
-function ibanOk(s){
-if(!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(s))return false;
-var t=(s.slice(4)+s.slice(0,4)).replace(/[A-Z]/g,function(c){return c.charCodeAt(0)-55}),r=0;
-for(var i=0;i<t.length;i++)r=(r*10+ +t[i])%97;return r===1;
+// ---- Controle rekeningnummer (IBAN) en Swift-code (BIC) ----------------------------
+// Lengte per land (SEPA-landen en buren). Onbekend land = enkel algemene IBAN-controle.
+var IBANLEN={AD:24,AT:20,BE:16,BG:22,CH:21,CY:28,CZ:24,DE:22,DK:18,EE:20,ES:24,FI:18,FO:18,FR:27,GB:22,GI:23,GL:18,GR:27,HR:21,HU:28,IE:22,IS:26,IT:27,LI:21,LT:20,LU:20,LV:21,MC:27,MT:31,NL:18,NO:15,PL:28,PT:25,RO:24,SE:24,SI:19,SK:24,SM:27,VA:22};
+var LAND={BE:"België",NL:"Nederland",FR:"Frankrijk",DE:"Duitsland",LU:"Luxemburg",GB:"Verenigd Koninkrijk",ES:"Spanje",IT:"Italië",CH:"Zwitserland",AT:"Oostenrijk",IE:"Ierland",PT:"Portugal",PL:"Polen",DK:"Denemarken",SE:"Zweden",NO:"Noorwegen",FI:"Finland"};
+function mod97(t){var r=0;for(var i=0;i<t.length;i++)r=(r*10+ +t[i])%97;return r}
+function ibanCheck(s){
+if(!s)return{ok:false,msg:"Vul het rekeningnummer in."};
+if(!/^[A-Z]{2}/.test(s))return{ok:false,kort:s.length<2&&/^[A-Z]*$/.test(s),msg:"Een IBAN begint met de landcode, bv. BE."};
+var c=s.slice(0,2),L=IBANLEN[c],nm=LAND[c]||c;
+if(!/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/.test(s))return{ok:false,msg:"Na de landcode volgen 2 cijfers en daarna enkel letters of cijfers."};
+if(L&&s.length!==L)return{ok:false,kort:s.length<L,msg:s.length<L?"Nog "+(L-s.length)+" teken"+(L-s.length>1?"s":"")+" (een rekeningnummer uit "+nm+" heeft er "+L+").":"Te lang: een rekeningnummer uit "+nm+" heeft "+L+" tekens, dit heeft er "+s.length+"."};
+if(!L&&(s.length<15||s.length>34))return{ok:false,msg:"Een IBAN heeft tussen 15 en 34 tekens."};
+if(mod97((s.slice(4)+s.slice(0,4)).replace(/[A-Z]/g,function(x){return x.charCodeAt(0)-55}))!==1)return{ok:false,msg:"Het controlegetal klopt niet: waarschijnlijk een tikfout. Kijk het nummer na."};
+if(c==="BE"){var b=s.slice(4),n=mod97(b.slice(0,10))||97;if(n!==+b.slice(10))return{ok:false,msg:"Het Belgische controlegetal klopt niet: kijk het nummer na."}}
+return{ok:true,msg:"✓ Geldig rekeningnummer"+(L?" ("+nm+")":"")+"."};
 }
-function bicOk(s){return s===""||/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(s)}
+function ibanOk(s){return ibanCheck(s).ok}
+function bicCheck(b,iban){
+if(b==="")return{ok:true,level:"",msg:iban&&iban.slice(0,2)!=="BE"&&ibanOk(iban)?"Buitenlandse rekening: vul de Swift-code in als je ze hebt.":""};
+if(!/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(b))return{ok:false,level:"no",msg:"Een Swift-code heeft 8 of 11 tekens: 4 letters bank, 2 letters land, 2 tekens plaats (en eventueel 3 voor het kantoor)."};
+var bc=b.slice(4,6),ic=(iban||"").slice(0,2);
+if(ic&&ibanOk(iban)&&bc!==ic)return{ok:true,level:"warn",msg:"Let op: de Swift-code is van "+(LAND[bc]||bc)+", het rekeningnummer van "+(LAND[ic]||ic)+". Kijk na of beide bij dezelfde bank horen."};
+return{ok:true,level:"ok",msg:"✓ Swift-code heeft een geldig formaat."};
+}
+function bicOk(s){return bicCheck(s,"").ok}
+function liveCheck(){
+var ib=$("f-iban"),bi=$("f-bic");if(!ib)return;
+var i=clean(ib.value),b=clean(bi.value),ci=$("c-iban"),cb=$("c-bic"),r=ibanCheck(i),q=bicCheck(b,i);
+ci.className="chk "+(!i||r.kort?"":r.ok?"ok":"no");ci.textContent=i?r.msg:"";
+cb.className="chk "+(q.level||"warn");cb.textContent=q.msg;
+}
 function num(v){v=parseFloat(String(v).replace(/\s/g,"").replace(",","."));return isNaN(v)?NaN:Math.round(v*100)/100}
 function stored(){try{return localStorage.getItem(KEY)||""}catch(e){return""}}
 function hname(id){return H[id]||"?"}
@@ -188,20 +214,23 @@ var h='<h2>'+(editId?"Refund aanpassen":"Nieuwe refund")+' · '+esc(hname(r.hote
 +field("f-date","Datum van de aanvraag",r.request_date,'type="date"')
 +field("f-bedrag","Terug te storten bedrag (€)",r.bedrag==null?"":String(r.bedrag).replace(".",","),'inputmode="decimal" placeholder="0,00"')
 +field("f-naam","Naam begunstigde",r.naam,'maxlength="140" autocomplete="off"',true)
-+field("f-iban","Rekeningnummer begunstigde (IBAN)",ibanFmt(r.iban),'maxlength="42" autocomplete="off" placeholder="BE00 0000 0000 0000" style="font-family:ui-monospace,monospace"')
-+field("f-bic","Swift-code begunstigde (BIC)",r.bic,'maxlength="11" autocomplete="off" placeholder="Optioneel voor Belgische rekeningen"')
++field("f-iban","Rekeningnummer begunstigde (IBAN)",ibanFmt(r.iban),'maxlength="42" autocomplete="off" spellcheck="false" placeholder="BE00 0000 0000 0000" style="font-family:ui-monospace,monospace"').replace(/<\/div>$/,'<div class="chk" id="c-iban" aria-live="polite"></div></div>')
++field("f-bic","Swift-code begunstigde (BIC)",r.bic,'maxlength="11" autocomplete="off" spellcheck="false" placeholder="Optioneel voor Belgische rekeningen"').replace(/<\/div>$/,'<div class="chk" id="c-bic" aria-live="polite"></div></div>')
 +field("f-med","Mededeling",r.mededeling,'maxlength="140"',true)
 +field("f-reden","Reden voor terugstorting",r.reden,"ta",true)
 +field("f-gm","General Manager",r.gm,'maxlength="100"')
 +'</div><p class="err" id="f-err"></p><div class="acts"><button id="f-save">Opslaan als open</button><button class="p" id="f-close">Opslaan en afsluiten</button><button id="f-cancel">Annuleren</button></div>';
 $("edit").innerHTML=h;$("edit").hidden=false;$("edit").scrollIntoView({behavior:"smooth",block:"start"});$("f-naam").focus();
+$("f-iban").oninput=$("f-bic").oninput=liveCheck;
+$("f-iban").onblur=function(){var v=clean(this.value);if(v)this.value=ibanFmt(v)};$("f-bic").onblur=function(){this.value=clean(this.value)};
+if(editId)liveCheck();
 }
 function readForm(){
 var e=[],o={request_date:$("f-date").value,naam:$("f-naam").value.trim().replace(/\s+/g," "),iban:clean($("f-iban").value),bic:clean($("f-bic").value),
 bedrag:num($("f-bedrag").value),mededeling:$("f-med").value.trim(),reden:$("f-reden").value.trim(),gm:$("f-gm").value.trim()};
 if(!o.request_date)e.push("datum");
 if(!o.naam)e.push("naam begunstigde");
-if(!ibanOk(o.iban))e.push("geldig rekeningnummer (IBAN)");
+if(!ibanOk(o.iban))e.push("geldig rekeningnummer (IBAN): "+ibanCheck(o.iban).msg.replace(/\.$/,""));
 if(!bicOk(o.bic))e.push("geldige Swift-code (8 of 11 tekens) of leeg");
 if(!(o.bedrag>0&&o.bedrag<100000))e.push("bedrag groter dan 0");
 if(!o.reden)e.push("reden");
