@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hotelportaal</title>
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="theme-color" content="#29335c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stocktelling">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#6b7280;--bd:#e3e6ea;--ac:#2563eb;--acx:#fff;--bad:#b91c1c;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#111418;--card:#1a1f26;--tx:#e8eaed;--mut:#9aa3ae;--bd:#2c333d;--ac:#5b8def;--acx:#0b1220;--bad:#f87171}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:18px 14px 40px}
+h1{font-size:22px;margin:0 0 12px}h2{font-size:18px;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+input,select{width:100%;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
+select{width:auto;max-width:260px}
+button{padding:7px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx);font:inherit;cursor:pointer}
+button.p{background:var(--ac);color:var(--acx);border-color:var(--ac)}
+.hint{color:var(--mut);font-size:12px}
+.top{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--bd)}
+.top div{max-width:1000px;margin:0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px}
+.top strong{flex:1;font-size:16px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bar label{margin:0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
+.tile{display:block;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:22px 18px;color:var(--tx);text-decoration:none;transition:border-color .15s,transform .15s}
+.tile:hover,.tile:focus-visible{border-color:var(--ac);transform:translateY(-2px)}
+.tile .ic{font-size:30px;line-height:1}.tile h2{margin:12px 0 4px}.tile p{margin:0;color:var(--mut);font-size:13px}
+.tile.soon{opacity:.75}.tag{display:inline-block;margin-top:10px;font-size:11px;padding:2px 8px;border-radius:9px;background:var(--bg);color:var(--mut)}
+#sum,.rs{margin-top:10px;font-size:13px}
+[hidden]{display:none!important}
+@media (max-width:640px){main{padding:12px 12px 32px}input,select,button{min-height:42px;font-size:16px}}
+</style>
+</head>
+<body>
+<div id="login" style="position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center"><div class="card" style="width:min(340px,92vw)"><h2>Aanmelden</h2><label for="le">E-mail</label><input id="le" type="email" autocomplete="username"><label for="lp" style="margin-top:8px">Wachtwoord</label><input id="lp" type="password" autocomplete="current-password"><p><button class="p" id="li">Aanmelden</button> <span id="lm" class="hint"></span></p></div></div>
+<header class="top"><div><strong>Home</strong><button id="so" style="font-size:12px">Afmelden</button></div></header>
+<main>
+<h1>Welkom</h1>
+<div class="card bar" id="hotel"><span class="hint">Laden…</span></div>
+<div class="tiles">
+<a class="tile" href="../stocktelling/"><div class="ic">&#128230;</div><h2>Stocktelling</h2><p>Maandelijkse voorraadtelling per categorie.</p><div id="sum"></div></a>
+<a class="tile soon" href="../kassa/" data-admin hidden><div class="ic">&#129534;</div><h2>Kassa</h2><p>Kassatelling per week en afdrachten.</p><span class="tag">In opbouw</span></a>
+<a class="tile soon" href="../refunds/" data-admin hidden><div class="ic">&#8617;&#65039;</div><h2>Refunds</h2><p>Terugbetalingen invullen en opvolgen.</p><span class="tag">In opbouw</span><div id="rsum" class="rs"></div></a>
+</div>
+</main>
+<script>if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("../sw.js").catch(function(){})})</script>
+<script src="../gedeeld/supabase.min.js"></script>
+<script src="../gedeeld/config.js"></script>
+<script src="../gedeeld/supabase-adapter.js"></script>
+<script>
+// Homepagina: hotelkeuze (gedeeld met de andere pagina's via localStorage) en live samenvatting.
+var KEY="stocktelling-hotel",db=null,isAdmin=false,myId="",H={},L={},M={},hid="",unsub=null;
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function n(v){v=parseFloat(String(v).replace(",","."));return isNaN(v)?0:v}
+function pad(x){return(x<10?"0":"")+x}
+var now=new Date(),today=now.getFullYear()+"-"+pad(now.getMonth()+1);
+var fm=new Intl.NumberFormat("nl-BE",{style:"currency",currency:"EUR"});
+function label(k){var p=k.split("-");return new Date(+p[0],+p[1]-1,1).toLocaleDateString("nl-BE",{month:"long",year:"numeric"})}
+function ids(){return Object.keys(H).sort(function(a,b){return H[a].localeCompare(H[b])})}
+function stored(){try{return localStorage.getItem(KEY)||""}catch(e){return""}}
+function bar(){
+var h;
+if(isAdmin){
+if(!ids().length)h='<span class="hint">Nog geen hotels. Voeg er een toe via Stocktelling.</span>';
+else{h='<label for="hsel">Hotel</label><select id="hsel">';ids().forEach(function(i){h+='<option value="'+i+'"'+(i===hid?" selected":"")+'>'+esc(H[i])+'</option>'});h+='</select><span class="hint">Je keuze geldt voor alle modules.</span>'}
+}else h=hid?'<strong>'+esc(H[hid])+'</strong>':'<span class="hint">Open Stocktelling om je hotel aan te maken.</span>';
+$("hotel").innerHTML=h;
+}
+function sum(){
+var ks=Object.keys(M).sort();
+if(!hid||!ks.length){$("sum").textContent="";return}
+var k=ks.indexOf(today)>=0?today:ks[ks.length-1],cats=(M[k]||{}).cats||{},t=0;
+Object.keys(cats).forEach(function(c){(cats[c]||[]).forEach(function(it){t+=n(it.pr)*n(it.e)})});
+$("sum").innerHTML='<strong>'+esc(label(k))+'</strong> · waarde eind '+fm.format(t)+(L[hid+"_"+k]?' · 🔒 afgesloten':'');
+}
+var rch=null,rt=null;
+function rsum(){
+clearTimeout(rt);rt=setTimeout(function(){
+var sb=window.sbClient;if(!sb||!hid){$("rsum").textContent="";return}
+sb.from("refunds").select("status,bedrag").eq("hotel_id",hid).in("status",["open","afgesloten"]).then(function(r){
+if(r.error||!r.data){$("rsum").textContent="";return}
+var o=0,a=0,s=0;r.data.forEach(function(x){if(x.status==="open")o++;else{a++;s+=+x.bedrag}});
+$("rsum").innerHTML=(o||a)?'<strong>'+o+'</strong> open · <strong>'+a+'</strong> afgesloten'+(a?' ('+fm.format(s)+')':''):'Geen openstaande refunds';
+});
+},200);
+if(!rch&&window.sbClient)rch=window.sbClient.channel("home-refunds").on("postgres_changes",{event:"*",schema:"public",table:"refunds"},rsum).subscribe();
+}
+function select(id){
+if(id===hid)return;
+hid=id;M={};if(unsub)unsub();unsub=null;
+if(isAdmin&&id)try{localStorage.setItem(KEY,id)}catch(e){}
+bar();sum();rsum();
+if(id)unsub=db.collection("hotels/"+id+"/months").onSnapshot(function(s){M={};s.docs.forEach(function(d){M[d.id]=d.data()});sum()},function(){});
+}
+function pick(){
+var want=isAdmin?stored():myId;
+if(!H[want])want=isAdmin?(ids()[0]||""):"";
+if(want!==hid)select(want);else bar();
+}
+$("hotel").onchange=function(e){if(e.target.id==="hsel")select(e.target.value)};
+window.addEventListener("storage",function(e){if(e.key===KEY&&db)pick()});
+window.addEventListener("pageshow",function(){if(db)pick()});
+Promise.all([claude.use("db"),claude.use("user")]).then(function(r){
+db=r[0];var u=r[1];
+return Promise.all([u.canEdit(),u.id()]).then(function(w){
+isAdmin=!!w[0];myId=w[1]||"";
+[].forEach.call(document.querySelectorAll("[data-admin]"),function(e){e.hidden=!isAdmin});
+db.collection("locks").onSnapshot(function(s){L={};s.docs.forEach(function(d){if((d.data()||{}).closed)L[d.id]=true});sum()},function(){});
+db.collection("hotels").onSnapshot(function(s){H={};s.docs.forEach(function(d){H[d.id]=(d.data()||{}).name||d.id});pick()},function(){});
+});
+}).catch(function(){$("hotel").innerHTML='<span class="hint">Gegevens konden niet geladen worden.</span>'});
+</script>
+</body>
+</html>

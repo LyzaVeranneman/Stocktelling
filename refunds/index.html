@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Refunds</title>
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="theme-color" content="#29335c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#6b7280;--bd:#e3e6ea;--ac:#2563eb;--acx:#fff;--inp:#fff7d6;--bad:#b91c1c;--pos:#15803d;--warn:#b45309;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#111418;--card:#1a1f26;--tx:#e8eaed;--mut:#9aa3ae;--bd:#2c333d;--ac:#5b8def;--acx:#0b1220;--inp:#3a3414;--bad:#f87171;--pos:#4ade80;--warn:#fbbf24}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:18px 14px 40px}
+h2{font-size:18px;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+input,select,textarea{width:100%;padding:7px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
+.f input,.f textarea{background:var(--inp)}
+textarea{min-height:64px;resize:vertical}
+button{padding:7px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx);font:inherit;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+button.p{background:var(--ac);color:var(--acx);border-color:var(--ac)}
+button.ok{border-color:var(--pos);color:var(--pos)}button.no{border-color:var(--bad);color:var(--bad)}
+.hint{color:var(--mut);font-size:12px}
+.err{color:var(--bad);font-size:13px}
+.top{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--bd)}
+.top div{max-width:1100px;margin:0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px}
+.top strong{flex:1;font-size:16px}
+a.btn{display:inline-flex;align-items:center;padding:7px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx);text-decoration:none}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.bar label{margin:0}.bar select{width:auto;max-width:260px}.bar input{width:200px}
+.seg{display:inline-flex;border:1px solid var(--bd);border-radius:10px;overflow-x:auto;max-width:100%}
+.seg button{border:0;border-radius:0;padding:7px 12px;white-space:nowrap;flex:none}.seg button.on{background:var(--ac);color:var(--acx)}
+.sp{flex:1}
+.ks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.ks div{border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:var(--card)}
+.ks span{display:block;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}.ks b{font-size:16px;font-variant-numeric:tabular-nums}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th{font-size:12px;color:var(--mut);text-align:left;font-weight:600;padding:6px;border-bottom:2px solid var(--bd);white-space:nowrap}
+td{padding:7px 6px;border-bottom:1px solid var(--bd);vertical-align:top}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.m{font-family:ui-monospace,monospace;font-size:12px;white-space:nowrap}
+tr.row{cursor:pointer}tr.row:hover td{background:color-mix(in srgb,var(--ac) 6%,transparent)}
+.chip{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;white-space:nowrap}
+.s-open{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.s-afgesloten{background:color-mix(in srgb,var(--ac) 15%,transparent);color:var(--ac)}
+.s-uitbetaald{background:color-mix(in srgb,var(--pos) 15%,transparent);color:var(--pos)}
+.s-geweigerd{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid .full{grid-column:1/-1}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+/* Refundblad, zelfde opbouw als de Word-template */
+.sheet{background:#fff;color:#111;border:1px solid var(--bd);border-radius:6px;padding:28px 32px;max-width:760px;margin:0 auto;font:13px/1.45 Calibri,"Segoe UI",Arial,sans-serif}
+.sheet .hd{display:flex;justify-content:space-between;gap:20px;border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:22px}
+.sheet .hd h1{font-size:20px;margin:0}.sheet .hd .ad{text-align:right;font-size:12px;line-height:1.5}
+.sheet table{border:1px solid #111}.sheet td,.sheet th{border:1px solid #111;padding:8px 10px;color:#111}
+.sheet th{font-size:14px;text-align:left;background:#f1f1f1}.sheet td:first-child{width:38%;font-weight:600}
+.sheet .gm{margin-top:40px;display:flex;gap:40px}.sheet .gm div{flex:1}.sheet .gm u{font-weight:600}.sheet .sig{border-bottom:1px solid #111;height:44px;margin-top:6px}
+.sheet .st{margin-top:18px;font-size:11px;color:#555}
+@media (max-width:700px){
+main{padding:12px 12px 32px}input,select,button,textarea{min-height:42px;font-size:16px}
+.grid{grid-template-columns:1fr}.ks{grid-template-columns:1fr 1fr}.bar input{width:100%}
+table.list thead{display:none}
+table.list tr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 4px;border-bottom:1px solid var(--bd)}
+table.list td{border:0;padding:0}table.list td.hide{display:none}
+.sheet{padding:18px}.sheet .hd{flex-direction:column}.sheet .hd .ad{text-align:left}
+}
+@media print{
+body{background:#fff}.top,#app>*:not(#detail),#detail>.noprint,#login{display:none!important}
+main{padding:0;max-width:none}#detail{border:0;padding:0;margin:0}.sheet{border:0;max-width:none;padding:0}
+}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div id="login" style="position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center"><div class="card" style="width:min(340px,92vw)"><h2>Aanmelden</h2><label for="le">E-mail</label><input id="le" type="email" autocomplete="username"><label for="lp" style="margin-top:8px">Wachtwoord</label><input id="lp" type="password" autocomplete="current-password"><p><button class="p" id="li">Aanmelden</button> <span id="lm" class="hint"></span></p></div></div>
+<header class="top"><div><a href="../home/" class="btn">&larr; Home</a><strong>Refunds</strong><button id="so" style="font-size:12px">Afmelden</button></div></header>
+<main id="app">
+<div class="bar" id="hotelbar"><span class="hint">Laden…</span></div>
+<div class="bar">
+<div class="seg" id="filter"></div>
+<input id="zoek" type="search" placeholder="Zoek naam, IBAN, mededeling…" aria-label="Zoeken">
+<span class="sp"></span>
+<button id="info" hidden>Hotelgegevens</button>
+<button id="exp" hidden>Exporteer CSV</button>
+<button id="nieuw" class="p">+ Nieuwe refund</button>
+</div>
+<div class="ks" id="sum"></div>
+<div class="card" id="edit" hidden></div>
+<div class="card" id="detail" hidden></div>
+<div class="card"><div class="wrap" id="list"><p class="hint">Laden…</p></div></div>
+<p class="hint">Een hotel vult een refund in en sluit ze af wanneer ze klaar is voor betaling. Een afgesloten refund kan het hotel niet meer wijzigen. De beheerder zet ze op uitbetaald of geweigerd, of heropent ze. Elk hotel ziet enkel zijn eigen refunds.</p>
+</main>
+<script>if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("../sw.js").catch(function(){})})</script>
+<script src="../gedeeld/supabase.min.js"></script>
+<script src="../gedeeld/config.js"></script>
+<script src="../gedeeld/supabase-adapter.js"></script>
+<script>
+// Refunds-module. Gegevens in de tabellen refunds en hotel_info (zie database/refunds.sql).
+var KEY="stocktelling-hotel",ST={open:"Open",afgesloten:"Afgesloten",uitbetaald:"Uitbetaald",geweigerd:"Geweigerd"};
+var sb=null,db=null,isAdmin=false,myId="",H={},hid="",R=[],INFO={},flt="open",openId="",editId=null,chan=null,missing=false,busy=false;
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var fm=new Intl.NumberFormat("nl-BE",{style:"currency",currency:"EUR"});
+function pad(x){return(x<10?"0":"")+x}
+function iso(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+function dat(s){if(!s)return"";var p=String(s).slice(0,10).split("-");return p[2]+"/"+p[1]+"/"+p[0]}
+function ibanFmt(s){return String(s||"").replace(/(.{4})/g,"$1 ").trim()}
+function clean(s){return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}
+function ibanOk(s){
+if(!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(s))return false;
+var t=(s.slice(4)+s.slice(0,4)).replace(/[A-Z]/g,function(c){return c.charCodeAt(0)-55}),r=0;
+for(var i=0;i<t.length;i++)r=(r*10+ +t[i])%97;return r===1;
+}
+function bicOk(s){return s===""||/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(s)}
+function num(v){v=parseFloat(String(v).replace(/\s/g,"").replace(",","."));return isNaN(v)?NaN:Math.round(v*100)/100}
+function stored(){try{return localStorage.getItem(KEY)||""}catch(e){return""}}
+function hname(id){return H[id]||"?"}
+function canEdit(r){return isAdmin||r.status==="open"}
+
+// ---- Hotelkeuze --------------------------------------------------------------
+function hotelBar(){
+var h,ids=Object.keys(H).sort(function(a,b){return H[a].localeCompare(H[b])});
+if(isAdmin){h='<label for="hsel">Hotel</label><select id="hsel"><option value="">Alle hotels</option>';ids.forEach(function(i){h+='<option value="'+i+'"'+(i===hid?" selected":"")+'>'+esc(H[i])+'</option>'});h+='</select>'}
+else h=H[myId]?'<strong>'+esc(H[myId])+'</strong>':'<span class="err">Je hotel bestaat nog niet. Maak het eerst aan via Stocktelling.</span>';
+$("hotelbar").innerHTML=h;
+$("nieuw").disabled=!hid||!H[hid]||missing;$("nieuw").title=hid?"":"Kies eerst een hotel";
+$("info").hidden=!hid||missing;$("exp").hidden=!isAdmin||missing;
+}
+$("hotelbar").onchange=function(e){if(e.target.id!=="hsel")return;hid=e.target.value;if(hid)try{localStorage.setItem(KEY,hid)}catch(_){}closePanels();hotelBar();load()};
+
+// ---- Laden + live bijwerken ------------------------------------------------------
+var lt=null;function later(){clearTimeout(lt);lt=setTimeout(load,250)}
+function load(){
+if(!sb)return;
+var q=sb.from("refunds").select("*").order("request_date",{ascending:false}).order("created_at",{ascending:false});
+if(hid)q=q.eq("hotel_id",hid);
+q.then(function(r){
+if(r.error){if(/refunds|42P01|PGRST20/.test((r.error.code||"")+(r.error.message||""))){missing=true;hotelBar();$("sum").innerHTML="";$("list").innerHTML='<p class="err">De refund-tabellen bestaan nog niet in Supabase. Voer eerst <b>database/refunds.sql</b> uit in de SQL Editor en ververs de pagina.</p>';return}throw r.error}
+missing=false;R=r.data||[];render();if(openId)showDetail(openId,true);
+}).catch(function(e){$("list").innerHTML='<p class="err">Laden mislukt: '+esc(e.message||e)+'</p>'});
+if(hid&&!INFO[hid])sb.from("hotel_info").select("hotel_id,info").eq("hotel_id",hid).then(function(r){if(!r.error&&r.data&&r.data[0])INFO[hid]=r.data[0].info||{};if(openId)showDetail(openId,true)});
+}
+function listen(){
+if(chan)return;
+chan=sb.channel("refunds-"+Math.random().toString(36).slice(2)).on("postgres_changes",{event:"*",schema:"public",table:"refunds"},later).subscribe();
+}
+
+// ---- Overzicht -----------------------------------------------------------------
+function filtered(){
+var z=$("zoek").value.trim().toLowerCase();
+return R.filter(function(r){
+if(flt!=="alle"&&r.status!==flt)return false;
+if(!z)return true;
+return [r.naam,r.iban,r.mededeling,r.reden,r.gm,hname(r.hotel_id)].join(" ").toLowerCase().indexOf(z)>=0;
+});
+}
+function render(){
+var c={open:0,afgesloten:0,uitbetaald:0,geweigerd:0},s={open:0,afgesloten:0,uitbetaald:0,geweigerd:0};
+R.forEach(function(r){c[r.status]++;s[r.status]+=+r.bedrag});
+var f='';["open","afgesloten","uitbetaald","geweigerd","alle"].forEach(function(k){f+='<button data-f="'+k+'" class="'+(flt===k?"on":"")+'">'+(k==="alle"?"Alle":ST[k])+(k!=="alle"&&c[k]?" ("+c[k]+")":"")+'</button>'});
+$("filter").innerHTML=f;
+$("sum").innerHTML=["open","afgesloten","uitbetaald","geweigerd"].map(function(k){return'<div><span>'+ST[k]+'</span><b>'+fm.format(s[k])+'</b> <span style="display:inline;text-transform:none">· '+c[k]+'</span></div>'}).join("");
+var L=filtered(),all=!hid;
+if(!L.length){$("list").innerHTML='<p class="hint">Geen refunds'+(flt!=="alle"?' met status '+ST[flt].toLowerCase():'')+'.</p>';return}
+var h='<table class="list"><thead><tr><th>Datum</th>'+(all?'<th>Hotel</th>':'')+'<th>Naam begunstigde</th><th>Rekeningnummer</th><th class="r">Bedrag</th><th>Reden</th><th>Status</th></tr></thead><tbody>',t=0;
+L.forEach(function(r){t+=+r.bedrag;
+h+='<tr class="row" data-id="'+esc(r.id)+'"><td>'+dat(r.request_date)+'</td>'+(all?'<td>'+esc(hname(r.hotel_id))+'</td>':'')+'<td><b>'+esc(r.naam)+'</b></td><td class="m hide">'+esc(ibanFmt(r.iban))+'</td><td class="r"><b>'+fm.format(r.bedrag)+'</b></td><td class="hide">'+esc(r.reden)+'</td><td><span class="chip s-'+r.status+'">'+ST[r.status]+'</span></td></tr>'});
+h+='</tbody><tfoot><tr><td colspan="'+(all?4:3)+'"><b>Totaal ('+L.length+')</b></td><td class="r"><b>'+fm.format(t)+'</b></td><td colspan="2"></td></tr></tfoot></table>';
+$("list").innerHTML=h;
+}
+$("filter").onclick=function(e){var k=e.target.getAttribute("data-f");if(k){flt=k;render()}};
+$("zoek").oninput=render;
+$("list").onclick=function(e){var tr=e.target.closest("tr[data-id]");if(tr)showDetail(tr.getAttribute("data-id"))};
+
+// ---- Invullen / aanpassen -----------------------------------------------------------
+function field(id,lab,val,extra,full){return'<div class="'+(full?"full":"")+'"><label for="'+id+'">'+lab+'</label>'+(extra==="ta"?'<textarea id="'+id+'" maxlength="1000">'+esc(val)+'</textarea>':'<input id="'+id+'" value="'+esc(val)+'" '+(extra||"")+'>')+'</div>'}
+function closePanels(){$("edit").hidden=true;$("detail").hidden=true;editId=null;openId=""}
+function showEdit(r){
+closePanels();editId=r?r.id:"";r=r||{request_date:iso(new Date())};
+var h='<h2>'+(editId?"Refund aanpassen":"Nieuwe refund")+' · '+esc(hname(r.hotel_id||hid))+'</h2><div class="grid f">'
++field("f-date","Datum van de aanvraag",r.request_date,'type="date"')
++field("f-bedrag","Terug te storten bedrag (€)",r.bedrag==null?"":String(r.bedrag).replace(".",","),'inputmode="decimal" placeholder="0,00"')
++field("f-naam","Naam begunstigde",r.naam,'maxlength="140" autocomplete="off"',true)
++field("f-iban","Rekeningnummer begunstigde (IBAN)",ibanFmt(r.iban),'maxlength="42" autocomplete="off" placeholder="BE00 0000 0000 0000" style="font-family:ui-monospace,monospace"')
++field("f-bic","Swift-code begunstigde (BIC)",r.bic,'maxlength="11" autocomplete="off" placeholder="Optioneel voor Belgische rekeningen"')
++field("f-med","Mededeling",r.mededeling,'maxlength="140"',true)
++field("f-reden","Reden voor terugstorting",r.reden,"ta",true)
++field("f-gm","General Manager",r.gm,'maxlength="100"')
++'</div><p class="err" id="f-err"></p><div class="acts"><button id="f-save">Opslaan als open</button><button class="p" id="f-close">Opslaan en afsluiten</button><button id="f-cancel">Annuleren</button></div>';
+$("edit").innerHTML=h;$("edit").hidden=false;$("edit").scrollIntoView({behavior:"smooth",block:"start"});$("f-naam").focus();
+}
+function readForm(){
+var e=[],o={request_date:$("f-date").value,naam:$("f-naam").value.trim().replace(/\s+/g," "),iban:clean($("f-iban").value),bic:clean($("f-bic").value),
+bedrag:num($("f-bedrag").value),mededeling:$("f-med").value.trim(),reden:$("f-reden").value.trim(),gm:$("f-gm").value.trim()};
+if(!o.request_date)e.push("datum");
+if(!o.naam)e.push("naam begunstigde");
+if(!ibanOk(o.iban))e.push("geldig rekeningnummer (IBAN)");
+if(!bicOk(o.bic))e.push("geldige Swift-code (8 of 11 tekens) of leeg");
+if(!(o.bedrag>0&&o.bedrag<100000))e.push("bedrag groter dan 0");
+if(!o.reden)e.push("reden");
+if(!o.gm)e.push("naam van de General Manager");
+return{o:o,e:e};
+}
+function save(close){
+if(busy)return;var f=readForm();
+if(f.e.length){$("f-err").textContent="Vul nog in: "+f.e.join(", ")+".";return}
+if(close&&!confirm("Refund afsluiten? Daarna kan het hotel ze niet meer wijzigen."))return;
+var o=f.o,q;if(close)o.status="afgesloten";
+busy=true;$("f-err").textContent="Opslaan…";
+if(editId)q=sb.from("refunds").update(o).eq("id",editId).select();
+else{o.hotel_id=hid;o.status=close?"afgesloten":"open";q=sb.from("refunds").insert(o).select()}
+q.then(function(r){busy=false;
+if(r.error)throw r.error;
+if(!r.data||!r.data.length)throw new Error("Niet toegestaan: deze refund is intussen afgesloten.");
+var id=r.data[0].id;closePanels();
+if(flt!=="alle"&&flt!==r.data[0].status)flt=r.data[0].status;
+load();openId=id;
+}).catch(function(e){busy=false;$("f-err").textContent="Opslaan mislukt: "+(e.message||e)});
+}
+$("edit").onclick=function(e){var t=e.target.id;if(t==="f-save")save(false);else if(t==="f-close")save(true);else if(t==="f-cancel")closePanels()};
+$("nieuw").onclick=function(){if(hid)showEdit(null)};
+
+// ---- Refundblad (detail + afdrukken) -----------------------------------------------------
+function sheet(r){
+var I=INFO[r.hotel_id]||{},ad=[I.adres,I.gemeente].filter(Boolean).map(esc).join("<br>");
+var ct=[I.btw?"BTW nr: "+esc(I.btw):"",I.tel?"Tel: "+esc(I.tel):"",I.mail?"Mail: "+esc(I.mail):""].filter(Boolean).join("<br>");
+return'<div class="sheet"><div class="hd"><div><h1>'+esc(hname(r.hotel_id))+'</h1><div>'+ad+'</div></div><div class="ad">'+ct+'</div></div>'
++'<table><tr><th colspan="2">Uit te voeren overschrijvingen</th></tr>'
++'<tr><td>Date of request</td><td>'+dat(r.request_date)+'</td></tr>'
++'<tr><td>Rekeningnummer begunstigde</td><td>'+esc(ibanFmt(r.iban))+'</td></tr>'
++'<tr><td>Swift-code begunstigde</td><td>'+esc(r.bic)+'</td></tr>'
++'<tr><td>Naam begunstigde</td><td>'+esc(r.naam)+'</td></tr>'
++'<tr><td>Terug te storten bedrag</td><td>'+fm.format(r.bedrag)+'</td></tr>'
++'<tr><td>Mededeling</td><td>'+esc(r.mededeling)+'</td></tr>'
++'<tr><td>Reden voor terugstorting</td><td>'+esc(r.reden).replace(/\n/g,"<br>")+'</td></tr></table>'
++'<div class="gm"><div><u>General Manager</u><div>'+esc(r.gm)+'</div><div class="sig"></div></div></div>'
++'<div class="st">Status: '+ST[r.status]+(r.afgesloten_op?' · afgesloten op '+dat(r.afgesloten_op):'')+(r.betaald_op?' · uitbetaald op '+dat(r.betaald_op):'')+(r.opmerking?' · '+esc(r.opmerking):'')+'</div></div>';
+}
+function showDetail(id,keep){
+var r=R.filter(function(x){return x.id===id})[0];if(!r){if(!keep)closePanels();return}
+if(!keep){closePanels()}openId=id;$("edit").hidden=true;
+var a='<div class="acts noprint" style="margin:0 0 12px">';
+if(canEdit(r))a+='<button id="d-edit">Aanpassen</button>';
+if(r.status==="open")a+='<button class="p" id="d-close">Afsluiten</button><button class="no" id="d-del">Verwijderen</button>';
+if(isAdmin&&r.status==="afgesloten")a+='<label for="d-paid" style="margin:0">Betaald op</label><input id="d-paid" type="date" value="'+iso(new Date())+'" style="width:auto"><button class="ok" id="d-pay">Uitbetaald</button><input id="d-opm" placeholder="Reden weigering" maxlength="500" style="width:200px"><button class="no" id="d-rej">Weigeren</button>';
+if(isAdmin&&r.status!=="open")a+='<button id="d-reopen">Heropenen</button>';
+a+='<span class="sp"></span><button id="d-print">Afdrukken / PDF</button><button id="d-x">Sluiten</button></div><p class="err noprint" id="d-err"></p>';
+$("detail").innerHTML=a+sheet(r);$("detail").hidden=false;
+if(!keep)$("detail").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function patch(id,p,msg){
+if(busy)return;busy=true;
+sb.from("refunds").update(p).eq("id",id).select().then(function(r){busy=false;
+if(r.error)throw r.error;if(!r.data||!r.data.length)throw new Error("Niet toegestaan.");
+if(msg&&flt!=="alle")flt=r.data[0].status;load();
+}).catch(function(e){busy=false;if($("d-err"))$("d-err").textContent="Mislukt: "+(e.message||e)});
+}
+$("detail").onclick=function(e){
+var t=e.target.id,r=R.filter(function(x){return x.id===openId})[0];if(!t||!r)return;
+if(t==="d-x")closePanels();
+else if(t==="d-print")window.print();
+else if(t==="d-edit")showEdit(r);
+else if(t==="d-close"){if(confirm("Refund afsluiten? Daarna kan het hotel ze niet meer wijzigen."))patch(r.id,{status:"afgesloten"},1)}
+else if(t==="d-pay"){var d=$("d-paid").value;if(!d){$("d-err").textContent="Kies de betaaldatum.";return}patch(r.id,{status:"uitbetaald",betaald_op:d,opmerking:""},1)}
+else if(t==="d-rej"){var m=$("d-opm").value.trim();if(!m){$("d-err").textContent="Geef een reden voor de weigering.";return}patch(r.id,{status:"geweigerd",opmerking:m},1)}
+else if(t==="d-reopen"){if(confirm("Refund heropenen? Het hotel kan ze dan weer aanpassen."))patch(r.id,{status:"open",opmerking:""},1)}
+else if(t==="d-del"){if(!confirm("Deze refund verwijderen?"))return;busy=true;
+sb.from("refunds").delete().eq("id",r.id).select().then(function(x){busy=false;if(x.error)throw x.error;if(!x.data||!x.data.length)throw new Error("Niet toegestaan.");closePanels();load()}).catch(function(e){busy=false;$("d-err").textContent="Verwijderen mislukt: "+(e.message||e)})}
+};
+
+// ---- Hotelgegevens (hoofding van het blad) -------------------------------------------
+$("info").onclick=function(){
+closePanels();var I=INFO[hid]||{};
+$("edit").innerHTML='<h2>Hotelgegevens · '+esc(hname(hid))+'</h2><p class="hint" style="margin-top:0">Deze gegevens komen bovenaan het refundblad.</p><div class="grid f">'
++field("i-adres","Straat en nummer",I.adres||"",'maxlength="120"')+field("i-gem","Postcode en gemeente",I.gemeente||"",'maxlength="120"')
++field("i-btw","BTW-nummer",I.btw||"",'maxlength="40"')+field("i-tel","Telefoon",I.tel||"",'maxlength="40"')
++field("i-mail","E-mail",I.mail||"",'type="email" maxlength="120"',true)
++'</div><p class="err" id="i-err"></p><div class="acts"><button class="p" id="i-save">Opslaan</button><button id="f-cancel">Annuleren</button></div>';
+$("edit").hidden=false;
+};
+$("edit").addEventListener("click",function(e){
+if(e.target.id!=="i-save")return;
+var o={adres:$("i-adres").value.trim(),gemeente:$("i-gem").value.trim(),btw:$("i-btw").value.trim(),tel:$("i-tel").value.trim(),mail:$("i-mail").value.trim()},h=hid;
+$("i-err").textContent="Opslaan…";
+sb.from("hotel_info").upsert({hotel_id:h,info:o}).then(function(r){if(r.error)throw r.error;INFO[h]=o;closePanels()}).catch(function(x){$("i-err").textContent="Opslaan mislukt: "+(x.message||x)});
+});
+
+// ---- Export (beheerder) ---------------------------------------------------------------
+function cell(v){var s=String(v==null?"":v);if(/^[=+\-@\t\r\n]/.test(s))s="'"+s;return'"'+s.replace(/"/g,'""')+'"'}
+$("exp").onclick=function(){
+var L=filtered(),rows=[["Hotel","Datum aanvraag","Naam begunstigde","IBAN","BIC","Bedrag","Mededeling","Reden","General Manager","Status","Afgesloten op","Betaald op","Opmerking"]];
+L.forEach(function(r){rows.push([hname(r.hotel_id),dat(r.request_date),r.naam,r.iban,r.bic,+r.bedrag,r.mededeling,r.reden,r.gm,ST[r.status],dat(r.afgesloten_op),dat(r.betaald_op),r.opmerking])});
+var csv="﻿"+rows.map(function(r){return r.map(function(v){return typeof v==="number"?String(v).replace(".",","):cell(v)}).join(";")}).join("\r\n");
+var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="refunds-"+(hid?hname(hid).toLowerCase().replace(/[^a-z0-9]+/g,"-"):"alle-hotels")+"-"+flt+"-"+iso(new Date())+".csv";document.body.appendChild(a);a.click();a.remove();
+};
+
+// ---- Start ----------------------------------------------------------------------
+Promise.all([claude.use("db"),claude.use("user")]).then(function(r){
+db=r[0];sb=window.sbClient;var u=r[1];
+return Promise.all([u.canEdit(),u.id()]).then(function(w){
+isAdmin=!!w[0];myId=w[1]||"";
+hid=isAdmin?stored():myId;
+db.collection("hotels").onSnapshot(function(s){
+H={};s.docs.forEach(function(d){H[d.id]=(d.data()||{}).name||d.id});
+if(isAdmin&&hid&&!H[hid])hid="";
+hotelBar();render();
+},function(){});
+load();listen();
+});
+}).catch(function(e){$("list").innerHTML='<p class="err">Laden mislukt: '+esc(e&&e.message||e)+'</p>'});
+</script>
+<div id="noaccess" hidden style="max-width:600px;margin:40px auto;padding:0 14px"><div class="card"><h2>Nog niet beschikbaar</h2><p class="hint">Deze module is in opbouw en voorlopig enkel toegankelijk voor beheerders.</p><p><a href="../home/" class="btn">&larr; Terug naar home</a></p></div></div>
+<script>/* Voorlopig enkel voor beheerders */claude.use("user").then(function(u){return u.canEdit()}).then(function(a){if(!a){document.querySelector("main").hidden=true;document.getElementById("noaccess").hidden=false}})</script>
+</body>
+</html>
